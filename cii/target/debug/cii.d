@@ -1,0 +1,1 @@
+/home/alechin/Desktop/Personal\ Projects/PScript/cii/target/debug/cii: /home/alechin/Desktop/Personal\ Projects/PScript/cii/src/main.rs /home/alechin/Desktop/Personal\ Projects/PScript/cii/src/scanner.rs
