@@ -1,6 +1,7 @@
 --I++
 extends #Normal cc::standard[@applepie]
 
+@reference @malloc;;@deref @interpreter::@--j+<
 @reference @linux var::str
 str[] = "Hello, World"
 
@@ -49,13 +50,39 @@ func input():
 	if keyboard.press("w");;velocity.z -:: speed
 	unif keyboard.press("s");;velocity.z +:: speed
 
-	if keyboard.press("space")&&@reference(@t;;is_on_floor)
+	if keyboard.press("space")&&@reference(@t;;is_on_floor):
 		velocity.y::jump_height
 
 func physics(@reference @engine[delta]):
 	velocity.y +:: -gravity * delta
 	input()
 	@reference(@engine[move_and_slide])
+
+--To write out 12345
+
+extends #Normal cc::standard[applepie]
+
+@reference @lib_halcyon::@--I+<
+@reference @linux var str::"12345"
+var bool::false
+
+func imide(@reference @engine['\n']):
+	bool::true
+	if bool;;true:
+		@--I+<print(str)
+	else:
+		@--I+<print(return::NULL)
+
+--To call a function of multiple libraries
+
+extends #Normal cc::standard[@applepie]
+@reference @lib_halcyon::@--I+<(@reference("./user/desktop/lib";;1))
+@reference @lib_halcyon::@--I+<(@reference("./user/desktop/lib2";;2))
+@reference @lib_halcyon::@--I+<(@reference("./user/desktop/lib3";;3))
+var lib::@reference;;++<@lib_halcyon
+
+func main(void):
+	print(lib;;++<)
 
 --List of all references with PScript
 extends
@@ -204,5 +231,41 @@ Annotations
 	@reference
 	@linux
 	@windows
-	@mac
+	@macos
 	@linux_windows_mac
+
+Enabling & Disabling Features
+	Use: Reference(@reference) to enable & Dereference(@deref) to disable
+
+	@malloc
+	@calloc
+	@interpreter
+	@var
+	@static
+	@dynamic
+	@pointaamber
+	@linux
+	@windows
+	@macos
+	@wready
+	@export
+	@t
+	@g
+	@c
+	@[]
+	@f64
+	@f32
+	@error
+	@lib_halcyon
+	@linux_windows_mac
+
+Header
+	--I
+	--j
+	--k
+	--p
+	++ = single
+	-+ = null
+	+< = memory single
+	++< = all
+ 	>+ = memory all
