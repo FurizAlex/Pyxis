@@ -26,3 +26,7 @@ idk.
 Why did you name your programming language PScript?
 ===================================================
 cuz I ran out of ideas lol
+
+When are you making documentation for PScript?
+==============================================
+the moment I have free time.
