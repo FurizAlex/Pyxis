@@ -3,3 +3,5 @@ of being FurizAlex's scripting language to intergrate with his future projects. 
 their own projects.
 
 PScript is a high-level dynamically typed programming language. While it is a high level language with an interpreter and a garbage collector.
+
+![pscriptHeader](https://github.com/user-attachments/assets/4f0278ee-affa-4a06-a36c-caa434217408)
