@@ -34,7 +34,7 @@ fn run_prompt()->Result<(), String>
 		match io::stdout().flush()
 		{
 			Ok(_) => (),
-			Err(_) => return Err("could not release stdout".to_string())
+			Err(_) => return Err("could not release stdout".to_string()),
 		}
 
 		let stdin = io::stdin();
@@ -48,7 +48,7 @@ fn run_prompt()->Result<(), String>
 					println!("ERROR: returned a empty byte");
 					return Ok(());
 				}
-			},
+			}
 			Err(_) => return Err("Could not read line".to_string()),
 		}
 
@@ -56,7 +56,10 @@ fn run_prompt()->Result<(), String>
 		match run(&buffer)
 		{
 			Ok(_) => (),
-			Err(msg) => println!("{}", msg),
+			Err(msg) => { 
+				println!("{}", msg);
+				return Err(msg);
+			}
 		}
 	}
 }
