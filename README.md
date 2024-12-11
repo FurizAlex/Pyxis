@@ -17,7 +17,7 @@ this a functional programming language (alast also edit this later)
 
 What was PScript inspired by?
 ============================
-Uhhhh.. Python? as well some C & TypedScript IG ¯\_(ツ)_/¯
+Uhhhh.. Python? as well some C & TypedScript IG '¯\_(ツ)_/¯'
 
 When are gonna release the first version
 ========================================
