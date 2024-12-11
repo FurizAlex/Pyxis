@@ -22,3 +22,7 @@ Uhhhh.. Python? as well some C & TypedScript IG ¯\_(ツ)_/¯
 When are gonna release the first version
 ========================================
 idk.
+
+Why did you name your programming language PScript?
+===================================================
+cuz I ran out of ideas lol
