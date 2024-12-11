@@ -84,6 +84,16 @@ var lib::@reference;;++<@lib_halcyon
 func main(void):
 	print(lib;;++<)
 
+--Simple Variables & Get Classes
+
+extends #Normal cc::standard[applepie]
+
+var num::0
+var i::0
+var percent::0.2
+
+@wrafs var apple::class;@reference["Apple"]
+
 --List of all references with PScript
 extends
 	#All
@@ -219,12 +229,20 @@ scopes
 	wrap
 	wrapf
 
-Annotations
+Calls
 	@t
-	@wready
-	@export[@reference]
-	@export_categoryf
+	@wrafs
+	@exprt[@reference]
+	@exprt_categoryf
 	@export_custom
+	@classfs
+	@malloc
+	@calloc
+	@static
+	@test
+	@debugfs
+	
+Annotations
 	@iconography
 	@modify_rpc
 	@tool
@@ -247,7 +265,7 @@ Enabling & Disabling Features
 	@linux
 	@windows
 	@macos
-	@wready
+	@wrafs
 	@export
 	@t
 	@g
