@@ -192,43 +192,6 @@ functions
 	input
 	exput
 
-scopes
-	abs
-	absf
-	absi
-	acos
-	byte
-	clamp
-	clampf
-	deg_to_rad
-	error_commit
-	floor
-	lerp
-	lerp_with_angle
-	lerpf
-	logj
-	max
-	maxf
-	min
-	minf
-	print
-	push_out_to_warning
-	randf
-	randf_range
-	roundup
-	roundup{format}
-	sin
-	sign
-	sign{format}
-	smooth
-	snap_up
-	snap_fac
-	sqrt
-	str()
-	tna_tan{angle::\\}
-	wrap
-	wrapf
-
 Calls
 	@t
 	@wrafs
