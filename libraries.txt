@@ -74,6 +74,7 @@ JELLYBEANS: The Standard Game Development Library
 		transform
 		rotate
 		scale
+		position
 		@get[@[OBJECT_PATH]]
 	
 	VECTOR-TYPES:
@@ -92,3 +93,35 @@ JELLYBEANS: The Standard Game Development Library
 		proc()
 		unha_input()
 
+ABSTRACTION: Standard UI Library
+	KEYWORDS:
+		head
+		body
+		abclass
+		div
+		pargrph
+		type
+		width
+		height
+		scale[]
+		position
+		display[0/0;0px*0px]
+
+	ANNOTATIONS:
+		@keyframe
+		@animation
+		@ab_class
+
+	FUNCTIONS:
+		animation()
+		draw()
+		drawpfs()
+		specify()
+		keyframige()
+		jax()
+		artboard()
+		hover()
+
+LUMIC: 
+
+GENU: Standard Kernal/Extention Library
