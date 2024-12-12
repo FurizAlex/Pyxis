@@ -1,6 +1,16 @@
 LIBRARIES FOR PSCRIPT
 =====================
 
+MALLOC & CALLOC:
+	@malloc
+	@calloc
+	>++{}of = sizeOf equivelant
+	&+<* = ambersign equivelant
+	\+< = newline
+	*
+	&
+	{;!}
+
 HALCYON: The Standard Programming Library
 	  STANDARD:
 		alphabetic()
