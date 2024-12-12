@@ -116,17 +116,6 @@ variables
 	StringName
 	ObjectPath
 
-vector-types
-	Vector2
-	Vector3
-	To_Basis
-
-spes-types
-	Color
-	Resource
-	Object
-	Array
-
 keyword
 	if
 	unif
