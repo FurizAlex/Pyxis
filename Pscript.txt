@@ -173,8 +173,6 @@ sign
 
 functions
 	main
-	physic
-	proc
 	init
 	imide
 	notify
