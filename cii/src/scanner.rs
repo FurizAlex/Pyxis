@@ -396,10 +396,10 @@ use StractValue::*;
 #[derive(Debug, Clone)]
 pub struct Token
 {
-	token_type: TokenType,
-	panoll: String,
-	stract: Option<StractValue>,
-	line_number: usize,
+	pub token_type: TokenType,
+	pub panoll: String,
+	pub stract: Option<StractValue>,
+	pub line_number: usize,
 }
 
 impl Token {
