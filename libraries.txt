@@ -2,7 +2,7 @@ LIBRARIES FOR PSCRIPT
 =====================
 
 HALCYON: The Standard Programming Library
-  STANDARD:
+	  STANDARD:
 		alphabetic()
 		alphanumeric()
 		numeric()
@@ -24,14 +24,14 @@ HALCYON: The Standard Programming Library
 		splitterfs()
 		apply([*++<func:])
 
-  IF MEMORY IS ENABLED:
-    memorset()
-    memorcopy()
-    memormove()
-    memorsearch()
-    memorcompare()
-    bzero()
-    stkitoa()
+	  IF MEMORY IS ENABLED:
+	    memorset()
+	    memorcopy()
+	    memormove()
+	    memorsearch()
+	    memorcompare()
+	    bzero()
+	    stkitoa()
 
 
 JELLYBEANS: The Standard Game Development Library
@@ -87,7 +87,7 @@ JELLYBEANS: The Standard Game Development Library
 			Resource
 			Object
 			Array
-
+	
 		FUNCTIONS:
 			physic(delta[-+K])
 			proc()
