@@ -1,0 +1,39 @@
+LIBRARIES FOR PSCRIPT
+=====================
+
+HALCYON: The Standard Programming Library
+  STANDARD:
+		alphabetic()
+		alphanumeric()
+		numeric()
+		ascii()
+		printable([bool:])
+		length()
+		copy()
+		cat()
+		caseupper()
+		caselower()
+		search()
+		searchrfs()
+		compare()
+		instringfs()
+		atoi()
+		duplicate()
+		join()
+		trimfs()
+		splitterfs()
+		apply([*++<func:])
+
+  IF MEMORY IS ENABLED:
+    memorset()
+    memorcopy()
+    memormove()
+    memorsearch()
+    memorcompare()
+    bzero()
+    stkitoa()
+
+
+JELLYBEANS: The Standard Game Development Library
+	STANDARD:
+		
