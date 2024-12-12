@@ -116,6 +116,17 @@ variables
 	StringName
 	ObjectPath
 
+vector-types
+	Vector2
+	Vector3
+	To_Basis
+
+spes-types
+	Color
+	Resource
+	Object
+	Array
+
 keyword
 	if
 	unif
@@ -173,11 +184,52 @@ sign
 
 functions
 	main
+	physic
+	proc
 	init
 	imide
 	notify
 	input
 	exput
+
+scopes under: JELLYBEAN LIBRARY
+	velocity
+	abs
+	absf
+	absi
+	acos
+	byte
+	clamp
+	clampf
+	deg_to_rad
+	error_commit
+	floor
+	lerp
+	lerp_with_angle
+	lerpf
+	logj
+	max
+	maxf
+	min
+	minf
+	print
+	push_out_to_warning
+	randf
+	randf_range
+	roundup
+	roundup{format}
+	sin
+	sign
+	sign{format}
+	smooth
+	snap_up
+	snap_fac
+	sqrt
+	str()
+	tna_tan{angle::\\}
+	wrap
+	wrapfs
+	Vectorfs()
 
 Calls
 	@t
@@ -216,7 +268,8 @@ Enabling & Disabling Features
 	@windows
 	@macos
 	@wrafs
-	@export
+	@exprt
+	@exprt_in_cats
 	@t
 	@g
 	@c
@@ -225,15 +278,87 @@ Enabling & Disabling Features
 	@f32
 	@error
 	@lib_halcyon
+	@lib_jellybeans
+	@lib_abstration
+	@lib_lumic
+	@lib_genu
 	@linux_windows_mac
+
+Things that are automatically enabled or disabled
+	Enabled:
+		@interpreter
+		@var
+		@static
+		@dynamic
+		@wrafs
+		@exprt
+		@exprt_in_cats
+		@t
+		@[]
+		@f64
+		@error
+		@test
+
+	Disabled:
+		@malloc
+		@calloc
+		@pointaamber
+		@linux
+		@windows
+		@macos
+		@g
+		@c
+		@f32
+		@lib_halcyon
+		@linux_windows_mac
 
 Header
 	--I
 	--j
 	--k
 	--p
-	++ = single
-	-+ = null
-	+< = memory single
-	++< = all
- 	>+ = memory all
+
+	if @malloc or @calloc is enabled
+		*++ = single pointer
+		*-+ = null terminate pointer
+		*+< =  all that has address of pointer gets the value
+		*++< = move pointer to original
+		*>+ = move pointer to next
+		;! = declare end of line
+	
+
+	++ = single in library
+	-+ = call null
+	+< = memory single specifically words with "mem"
+	++< = all in library
+ 	>+ = memory all specifically words with "mem"
+
+Libraries
+	Halcyon - General Programming Library
+	Jellybeans - General Game Development Library
+	Abstraction - General UI Library
+	Lumic - General Shader Library
+	Genu - General Kernal/Extention Library
+	Custom - Anyother library
+
+	Library Code Doc
+	================
+	Halcyon:
+		@reference @malloc
+		@reference @lib_halcyon::@--I++< to reference all functions in library
+		@reference @lib_halcyon::@--I++{@memcpy} to reference a single function in library
+
+		var i::0;!
+		var size::i + 1;!
+
+		func copyMem():
+			for j in i:
+				j = (@static;*++<int)@malloc(as(size));!
+				memcpy(i, size)
+
+	Jellybeans:
+		@reference @lib_jellybeans::@--I++<
+
+		func physics_process
+			
+			
