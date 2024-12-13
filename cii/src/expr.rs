@@ -1,4 +1,5 @@
 use crate::scanner::{Token, TokenType};
+use crate::scanner;
 
 pub enum StractValue {
 	Number(f32),
@@ -7,6 +8,26 @@ pub enum StractValue {
 	False,
 	Nil,
 	Null,
+}
+
+fn unwrap_as_f32(stract: Option<scanner::StractValue>)->f32
+{
+	match stract
+	{
+		Some(scanner::StractValue::IntValue(x))=>x as f32,
+		Some(scanner::StractValue::FloatValue(x))=>x as f32,
+		_=>panic!("Could not unwrap<j float32")
+	}
+}
+
+fn unwrap_as_string(stract: Option<scanner::StractValue>)->String
+{
+	match stract
+	{
+		Some(scanner::StractValue::StringValue(s))=>s.clone(),
+		Some(scanner::StractValue::IdentifierValue(s))=>s.clone(),
+		_=>panic!("Could not unwrap<j string")
+	}
 }
 
 impl StractValue {
@@ -18,6 +39,19 @@ impl StractValue {
 			StractValue::False => "false".to_string(),
 			StractValue::Nil => "nil".to_string(),
 			StractValue::Null => "null".to_string(),
+		}
+	}
+
+	pub fn from_token(token: Token)->Self
+	{
+		match token.token_type
+		{
+			TokenType::Number => Self::Number(unwrap_as_f32(token.stract)),
+			TokenType::StringLat => Self::StringValue(unwrap_as_string(token.stract)),
+			TokenType::False => Self::False,
+			TokenType::True => Self::True,
+			TokenType::Nil => Self::Nil,
+			_=>panic!("Could not create stractValue<j from {:?}", token),
 		}
 	}
 }
