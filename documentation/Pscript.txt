@@ -151,6 +151,7 @@ keyword
 	void
 	await
 	assert
+	define
 	breakpoint
 	pointish
 	null
