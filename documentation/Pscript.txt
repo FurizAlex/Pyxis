@@ -337,6 +337,7 @@ Header
  	>+ = memory all specifically words with "mem"
 
 	<++?> = range
+	?>++* = comfirm/void
 
 Libraries
 	Halcyon - General Programming Library
