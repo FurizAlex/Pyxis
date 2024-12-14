@@ -145,13 +145,13 @@ keyword
 	signal
 	func
 	static
-	const
+	const/constant
 	enum
 	var
 	void
 	await
 	assert
-	define
+	define[]
 	breakpoint
 	pointish
 	null
