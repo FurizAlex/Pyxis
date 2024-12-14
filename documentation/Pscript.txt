@@ -242,6 +242,7 @@ Calls
 	@malloc
 	@calloc
 	@eld
+	@trminat
 	@static
 	@test
 	@debugfs
