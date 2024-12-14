@@ -8,7 +8,7 @@ PScript is a high-level dynamically typed programming language. While it is a hi
 
 Why use Pyxis?
 ================
-![pscript_FAQ01](https://github.com/user-attachments/assets/006ce26f-3e75-4342-864b-2c2da9821acc)
+![pscript_FAQ01](https://github.com/user-attachments/assets/f5e66b0f-ddd2-4baf-915f-1968ddf20e31)
 
 How do I install it?
 ====================
@@ -20,7 +20,7 @@ What was Pyxis inspired by?
 
 When are gonna release the first version
 ========================================
-![pscript_FAQ01](https://github.com/user-attachments/assets/006ce26f-3e75-4342-864b-2c2da9821acc)
+![pscript_FAQ01](https://github.com/user-attachments/assets/5342e6f4-6db1-4724-add4-d1bd8c9e4357)
 
 Why did you name your programming language Pyxis (PScript)?
 ===================================================
