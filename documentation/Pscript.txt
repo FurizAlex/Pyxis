@@ -335,6 +335,8 @@ Header
 	++< = all in library
  	>+ = memory all specifically words with "mem"
 
+	<++?> = range
+
 Libraries
 	Halcyon - General Programming Library
 	Jellybeans - General Game Development Library
