@@ -241,6 +241,7 @@ Calls
 	@classfs
 	@malloc
 	@calloc
+	@eld
 	@static
 	@test
 	@debugfs
