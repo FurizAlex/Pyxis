@@ -1,4 +1,4 @@
-![pscript_FAQ01](https://github.com/user-attachments/assets/902f27fd-5437-4b38-acd6-3fbf6ddcd594)**PScript** (Aka Pyxis Script) is a free and open sourced scripting language for the sole purposes of it being fast and have easy integration. PScript is a programming language with the purpose
+**PScript** (Aka Pyxis Script) is a free and open sourced scripting language for the sole purposes of it being fast and have easy integration. PScript is a programming language with the purpose
 of being FurizAlex's scripting language to intergrate with his future projects. While this scripting language was created for a personal purpose, anybody can take it and integrate it with
 their own projects.
 
