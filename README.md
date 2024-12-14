@@ -4,7 +4,7 @@ their own projects.
 
 PScript is a high-level dynamically typed programming language. While it is a high level language with an interpreter and a garbage collector.
 
-![pscriptHeader](https://github.com/user-attachments/assets/e72a14b0-5269-476c-b855-24345ae0a7d8)
+![pscriptHeader](https://github.com/user-attachments/assets/5f47cf15-e456-4e57-a084-8891c100f871)
 
 Why use PScript?
 ================
