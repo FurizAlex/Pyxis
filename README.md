@@ -9,18 +9,18 @@ PScript is a high-level dynamically typed programming language. While it is a hi
 # FAQ
 idk.
 
-## How do I install it?
+### How do I install it?
 good question, you could probably install it later when I actually make
 this a functional programming language (alast also edit this later)
 
-## What was Pyxis inspired by?
+### What was Pyxis inspired by?
 Uhhhh.. Python? as well some C & TypedScript ig ¯\\_(ツ)_/¯
 
-## When are gonna release the first version
+### When are gonna release the first version
 idk.
 
-## Why did you name your programming language Pyxis (PScript)?
+### Why did you name your programming language Pyxis (PScript)?
 cuz I ran out of ideas lol
 
-## When are you making documentation for Pyxis?
+### When are you making documentation for Pyxis?
 the moment I have free time
