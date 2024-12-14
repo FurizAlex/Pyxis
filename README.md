@@ -6,7 +6,7 @@ PScript is a high-level dynamically typed programming language. While it is a hi
 
 ![pscriptHeader](https://github.com/user-attachments/assets/5f47cf15-e456-4e57-a084-8891c100f871)
 
-Why use Pyxis?
+##FAQ
 ================
 ![pscript_FAQ01](https://github.com/user-attachments/assets/62cdd0e9-6caa-4a42-8f99-349e44bcf07d)
 
