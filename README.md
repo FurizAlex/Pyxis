@@ -1,4 +1,4 @@
-**PScript** (Aka Pyxis Script) is a free and open sourced scripting language for the sole purposes of it being fast and have easy integration. PScript is a programming language with the purpose
+![pscript_FAQ01](https://github.com/user-attachments/assets/7ba94758-8b3d-4e98-92cc-297a8a9f0a6d)**PScript** (Aka Pyxis Script) is a free and open sourced scripting language for the sole purposes of it being fast and have easy integration. PScript is a programming language with the purpose
 of being FurizAlex's scripting language to intergrate with his future projects. While this scripting language was created for a personal purpose, anybody can take it and integrate it with
 their own projects.
 
@@ -8,25 +8,24 @@ PScript is a high-level dynamically typed programming language. While it is a hi
 
 Why use Pyxis?
 ================
-![pscript_FAQ01](https://github.com/user-attachments/assets/51182099-f53a-45fd-8031-0b7e124808c8)
+![pscript_FAQ01](https://github.com/user-attachments/assets/006ce26f-3e75-4342-864b-2c2da9821acc)
 
 How do I install it?
 ====================
-good question, you could probably install it later when I actually make
-this a functional programming language (alast also edit this later)
+![pscript_FAQ02](https://github.com/user-attachments/assets/e552fa2b-2d98-43d8-8835-a01381ccabb4)
 
 What was Pyxis inspired by?
 ============================
-Uhhhh.. Python? as well some C & TypedScript IG '¯\_(ツ)_/¯'
+![pscript_FAQ03](https://github.com/user-attachments/assets/7fca928c-e374-4e40-8e4c-cc6fa317db65)
 
 When are gonna release the first version
 ========================================
-![pscript_FAQ01](https://github.com/user-attachments/assets/51182099-f53a-45fd-8031-0b7e124808c8)
+![pscript_FAQ01](https://github.com/user-attachments/assets/006ce26f-3e75-4342-864b-2c2da9821acc)
 
 Why did you name your programming language Pyxis (PScript)?
 ===================================================
-cuz I ran out of ideas lol
+![pscript_FAQ04](https://github.com/user-attachments/assets/60bb51a8-0df2-45c0-a050-b2fc4db0eb38)
 
 When are you making documentation for Pyxis?
 ==============================================
-the moment I have free time.
+![pscript_FAQ05](https://github.com/user-attachments/assets/e4158ecf-15cb-44e9-a246-aaf40afb2a33)
