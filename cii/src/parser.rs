@@ -190,12 +190,12 @@ impl Parser
 }
 
 #[cfg(test)]
-mod tests{
+mod tests {
 	use super::*;
 	use crate::scanner::StractValue::*;
 	
 	#[test]
-	fn test_addition()
+	fn addition()
 	{
 		let one = vec![Token{
 			token_type: Number,
