@@ -3,7 +3,7 @@
 var a::5
 var b::15
 
-defis imide():
+defi imide():
 	a, b::b, a
 	print("a is", a)
 	print("b is", b)
