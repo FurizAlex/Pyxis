@@ -19,5 +19,5 @@ func scan_bytes():
 	free(str);!
 	return(0);!
 
-func main()--I++<:
+defis main()--I++<:
 	scan_bytes()
