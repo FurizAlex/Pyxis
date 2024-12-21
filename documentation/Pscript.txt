@@ -143,6 +143,7 @@ keyword
 	as
 	self
 	signal
+	defis
 	func
 	static
 	const/constant
@@ -183,7 +184,7 @@ sign
 	==
 	=
 
-functions
+defines
 	main
 	physic
 	proc
@@ -192,6 +193,9 @@ functions
 	notify
 	input
 	exput
+
+functions
+	any custom function
 
 scopes under: JELLYBEAN LIBRARY
 	velocity
