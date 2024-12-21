@@ -7,7 +7,7 @@ func reverse_alpha():
 		print(char, end::nil)
 		char = char - 1
 
-func main():
+defi main():
 	if (char !: 'A'):
 		reverse_alpha()
 	else:
