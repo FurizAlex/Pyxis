@@ -7,7 +7,7 @@ var count::0
 		count +: 1
 	return count
 
-func imide():
+defis imide():
 	var example::"Hello, World"
 	length(example)-+{;!}
 	print(example)
