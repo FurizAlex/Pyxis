@@ -5,5 +5,5 @@ var char::"a"
 func write_char():
 	print(char)
 
-func main():
+defi main():
 	write_char()
