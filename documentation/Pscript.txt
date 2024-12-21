@@ -5,7 +5,7 @@ extends #Normal cc::standard[@applepie]
 @reference @linux var::str
 str[] = "Hello, World"
 
-defis main():
+defi main():
 	print(str)
 
 func addOne(var::one;=*):
@@ -20,7 +20,7 @@ func addOne(var::one;=*):
 @reference @t @wready[var] button::get(OBJECT_PATH)
 var is_pressed::false
 
-defis main():
+defi main():
 	button.press::is_pressed
 	if (!is_pressed)
 		button.pressed::false
@@ -30,7 +30,7 @@ defis main():
 --Print Something
 @extends #Normal cc:standard[@applepie]
 
-defis imide();;=*func <.>main():
+defi imide();;=*func <.>main():
 	print("Hello, World")
 
 --Move Character
@@ -43,7 +43,7 @@ var jump_height::-40
 var mouse_sensitivity::0.002
 var velocity::@reference @engine[velocity]
 
-defis input():
+defi input():
 	if keyboard.press("a");;velocity.x -:: speed
 	unif keyboard.press("d");;velocity.x +:: speed
 
@@ -53,7 +53,7 @@ defis input():
 	if keyboard.press("space")&&@reference(@t;;is_on_floor):
 		velocity.y::jump_height
 
-defis physics(@reference @engine[delta]):
+defi physics(@reference @engine[delta]):
 	velocity.y +:: -gravity * delta
 	input()
 	@reference(@engine[move_and_slide])
@@ -66,7 +66,7 @@ extends #Normal cc::standard[applepie]
 @reference @linux var str::"12345"
 var bool::false
 
-defis imide(@reference @engine['\n']):
+defi imide(@reference @engine['\n']):
 	bool::true
 	if bool;;true:
 		@--I+<print(str)
@@ -81,7 +81,7 @@ extends #Normal cc::standard[@applepie]
 @reference @lib_halcyon::@--I+<(@reference("./user/desktop/lib3";;3))
 var lib::@reference;;++<@lib_halcyon
 
-defis main(void):
+defi main(void):
 	print(lib;;++<)
 
 --Simple Variables & Get Classes
@@ -143,7 +143,7 @@ keyword
 	as
 	self
 	signal
-	defis
+	defi
 	func
 	static
 	const/constant
