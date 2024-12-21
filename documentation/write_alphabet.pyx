@@ -2,5 +2,5 @@
 @reference @lib_halcyon::@--I++(@reference("./lib_halcyon";;1)@t[alphabetic()])
 var alphabet::@reference;;++@lib_halcyon
 
-defis main():
+defi main():
 	print(alphabet)
