@@ -8,8 +8,9 @@ MALLOC & CALLOC:
 	&+<* = ambersign equivelant
 	\+< = newline
 	*
-	&
-	{;!}
+	& = reference/additional variable/define
+	&* = pointer
+	{;!} = null terminator
 
 HALCYON: The Standard Programming Library
 	  STANDARD:
