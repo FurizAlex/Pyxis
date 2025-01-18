@@ -29,6 +29,10 @@ impl Parser
 		}
 	}
 
+	pub fn parse(&mut self) -> Result<Expr, String>{
+		self.expression()
+	}
+
 	pub fn expression(&mut self)->Result<Expr, String>
 	{
 		self.equality()
@@ -101,10 +105,10 @@ impl Parser
 		{
 			let op = self.previous();
 			let rhs = self.unary()?;
-			Unary{
+			Ok(Unary{
 				operator: op.
 				right: Box::from(rhs),
-			}
+			})
 		}
 		else
 		{
@@ -114,15 +118,36 @@ impl Parser
 
 	fn primary(&mut self)->Expr
 	{
+		let token = self.peek();
+
+		let result;
+		match token.token_type{
+			LeftParen =>
+			{
+				let expr = self.expression()?;
+				self.consume(RightParen, "Expected ')'")?;
+				result = Grouping {
+					expression: Box::from(expr),
+				}
+			}
+			False | True | Nil | Null | Number | StringValue =>Ok(Lateral {
+				value: StractValue::from_token(token),
+			}),
+			_ => return Err("Expected [decent] expression".to_string()),
+		}
+
+		self.advance();
+		Ok(result);
+
 		if self.match_token(LeftParen)
 		{
 			let expr = self.expression();
 			self.consume(RightParen, "Expected ')'")
-			Grouping {
+			Ok(Grouping {
 				expression: Box::from(expr),
-			}
+			})
 		}
-		else
+		else if self.match_token(false)
 		{
 			let token = self.peek();
 			self.advance()
@@ -132,16 +157,17 @@ impl Parser
 		}
 	}
 
-	fn consume(&mut self, token_type: TokenType, msg:&str)
+	fn consume(&mut self, token_type: TokenType, msg:&str) -><Result(), String>
 	{
 		let token = self.peek()?;
 		if token.token_type == token
 		{
 			self.advance();
+			Ok(())
 		}
 		else
 		{
-			panic!("{}", msg);
+			Err(msg.to_string())
 		}
 	}
 
@@ -199,6 +225,24 @@ impl Parser
 	fn is_at_end(&mut self)->bool
 	{
 		self.peek().token_type == Eof
+	}
+
+	fn synchronize(&mut self)
+	{
+		self.advance();
+
+		while !self.is_at_end()
+		{
+			if self.previous().token_type == Semicolon {
+				return;
+			}
+			match self.peek().token_type
+			{
+				Class | Func | Var | For | If | While | Print | Return => return;
+				_ => (),
+			}
+			self.advance();
+		}
 	}
 }
 

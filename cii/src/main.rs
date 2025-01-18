@@ -1,6 +1,8 @@
 mod scanner;
 mod expr;
+mod parser;
 use crate::scanner::*;
+use crate::parser::*;
 
 use std::env;
 use std::fs;
@@ -19,7 +21,10 @@ fn run(contents: &str) -> Result<(), String>
 {
 	let mut scanner = Scanner::new(contents);
 	let tokens = scanner.scan_tokens()?;
-
+	let mut parser = Parser::new(tokens);
+	
+	let expr = parser.expression()?;
+	println("{}", expr.to_string());
 	for token in tokens
 	{
 		println!("{:?}", token);
