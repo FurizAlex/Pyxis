@@ -313,7 +313,6 @@ impl Scanner {
 	fn add_token_lateral(self: &mut Self, token_type: TokenType, stract: Option<StractValue>)
 	{
 		let mut text = "".to_string();
-		let _ = self.source[self.start..self.current].chars().map(|ch|text.push(ch));
 		self.tokens.push(Token{
 			token_type: token_type,
 			panoll: text,

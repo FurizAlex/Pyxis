@@ -29,22 +29,22 @@ impl Parser
 		}
 	}
 
-	pub fn expression(&mut self)->Expr
+	pub fn expression(&mut self)->Result<Expr, String>
 	{
 		self.equality()
 	}
 
 	fn equality(&mut self)->Expr
 	{
-		let mut expr = self.comparison();
+		let mut expr = self.comparison()?;
 
 		while self.match_tokens(&[BangEqual, EqualEqual])
 		{
 			let operator = self.previous();
-			let rhs = self.comparison();
+			let rhs = self.comparison()?;
 			expr = Binary { left: Box::(expr), operator: operator, right: Box::(rhs), };
 		}
-		expr
+		Ok(expr)
 	}
 
 	fn comparison(&mut self)->Expr
@@ -60,20 +60,33 @@ impl Parser
 				right: Box::from(rhs),
 			}
 		}
-		expr
+		Ok(expr)
 	}
 
 	fn term(&mut self)->Expr{
-		let mut expr = self.factor();
+		let mut expr = self.factor()?;
+
+		while self.match_tokens(&[Minus, Plus])
+		{
+			let op = self.previous();
+			let rhs = self.factor()?;
+			expr = Binary
+			{
+				left: Box::from(expr),
+				operator: op,
+				right: Box::from(rhs),
+			};
+		}
+		Ok(expr);
 	}
 
-	fn factor(&mut self)->Expr
+	fn factor(&mut self)->Result<Expr, String>
 	{
-		let mut expr = self.unary();
+		let mut expr = self.unary()?;
 		while self.match_tokens(&[Slash, Star])
 		{
 			let op = self.previous();
-			let rhs = self.unary();
+			let rhs = self.unary()?;
 			expr = Binary{
 				left: Box::from(expr),
 				operator: op,
@@ -83,11 +96,11 @@ impl Parser
 		expr
 	}
 
-	fn unary(&mut self)->Expr{
+	fn unary(&mut self)->Result<Expr, String>{
 		if self.match_tokens(&[Bang, Minus])
 		{
 			let op = self.previous();
-			let rhs = self.unary();
+			let rhs = self.unary()?;
 			Unary{
 				operator: op.
 				right: Box::from(rhs),
@@ -95,7 +108,7 @@ impl Parser
 		}
 		else
 		{
-			self.primary()
+			self.primary()?;
 		}
 	}
 
@@ -121,7 +134,7 @@ impl Parser
 
 	fn consume(&mut self, token_type: TokenType, msg:&str)
 	{
-		let token = self.peek();
+		let token = self.peek()?;
 		if token.token_type == token
 		{
 			self.advance();
