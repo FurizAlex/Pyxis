@@ -16,7 +16,7 @@ this a functional programming language (alast also edit this later)
 ### What was Pyxis inspired by?
 Uhhhh.. Python? as well some C & TypedScript ig ¯\\_(ツ)_/¯
 
-### When are gonna release the first version
+### When are you gonna release the first version
 idk.
 
 ### Why did you name your programming language Pyxis (PScript)?
