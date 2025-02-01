@@ -51,6 +51,7 @@ impl StractValue {
 			TokenType::False => Self::False,
 			TokenType::True => Self::True,
 			TokenType::Nil => Self::Nil,
+			TokenType::Null => Self::Null,
 			_=>panic!("Could not create stractValue<j from {:?}", token),
 		}
 	}

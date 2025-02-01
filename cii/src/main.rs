@@ -23,8 +23,8 @@ fn run(contents: &str) -> Result<(), String>
 	let tokens = scanner.scan_tokens()?;
 	let mut parser = Parser::new(tokens);
 	
-	let expr = parser.expression()?;
-	println("{}", expr.to_string());
+	let expr = parser.parse()?;
+	println!("{}", expr.to_string());
 	for token in tokens
 	{
 		println!("{:?}", token);
