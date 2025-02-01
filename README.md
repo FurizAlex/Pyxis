@@ -17,7 +17,7 @@ this a functional programming language (alast also edit this later)
 Uhhhh.. Python? as well some C & TypedScript ig ¯\\_(ツ)_/¯
 
 ### When are you gonna release the first version
-idk.
+Soon.
 
 ### Why did you name your programming language Pyxis (PScript)?
 cuz I ran out of ideas lol
