@@ -58,10 +58,10 @@ impl StractValue {
 }
 
 pub enum Expr {
-	Binary { left: Box<Expr>, operator: &Token, right:Box<Expr>},
+	Binary { left: Box<Expr>, operator: Token, right:Box<Expr>},
 	Grouping { expression: Box<Expr> },
 	Lateral { value: StractValue },
-	Unary { operator: &Token, right: Box<Expr> }
+	Unary { operator: Token, right: Box<Expr> }
 }
 
 impl Expr {
@@ -98,7 +98,7 @@ mod tests {
 			stract: None, 
 			line_number: 0,
 		};
-		let onetwothree = Lateral { 
+		let onetwothree = Lateral {
 			value: Number(123.0) };
 		let group = Grouping { 
 			expression: Box::from(Lateral {value: Number(45.67)})};

@@ -74,7 +74,7 @@ fn main() {
 	let args: Vec<String> = env::args().collect();
 	
 	if args.len() > 2 {
-		println!("USAGE: j< pscript[Script] - Script cannot be over argument > 2");
+		println!("USAGE: j< pscript[Script] - Script cannot be over argumentS > 2");
 		exit(64);
 	}
 	else if args.len() == 2

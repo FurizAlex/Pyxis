@@ -206,7 +206,7 @@ impl Parser
 		false
 	}
 
-	fn advance(&mut self)-> &Token
+	fn advance(&mut self)-> Token
 	{
 		if !self.is_at_end()
 		{
@@ -215,14 +215,14 @@ impl Parser
 		self.previous()
 	}
 
-	fn peek(&mut self)-> &Token
+	fn peek(&mut self)-> Token
 	{
-		&self.tokens[self.current]
+		self.tokens[self.current].clone()
 	}
 
-	fn previous(&mut self)-> &Token
+	fn previous(&mut self)-> Token
 	{
-		&self.tokens[self.current - 1].clone()
+		self.tokens[self.current - 1].clone()
 	}
 
 	fn is_at_end(&mut self)->bool
