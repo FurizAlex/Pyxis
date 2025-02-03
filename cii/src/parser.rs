@@ -1,5 +1,5 @@
-use crate::scanner::{Token, TokenType::*, TokenType};
 use crate::expr::{Expr::*, Expr, StractValue};
+use crate::scanner::{Token, TokenType::*, TokenType};
 
 pub struct Parser
 {
@@ -7,13 +7,14 @@ pub struct Parser
 	current: usize,
 }
 
-macro_rules! match_tokens
-{
-	($parser:ident, ($token:ident),+)=>{
+macro_rules! match_tokens {
+	($parser:ident, $($token:ident),+) =>{
 		{
 			let mut result = false;
-			{(result |= $parser.match_token($token);)*}
-			result 
+			{
+				$(result |= $parser.match_token($token);)*
+			}
+			result
 		}
 	}
 }
@@ -46,7 +47,7 @@ impl Parser
 		{
 			let operator = self.previous();
 			let rhs = self.comparison()?;
-			expr = Binary { left: Box::from(expr), operator: operator.clone(), right: Box::from(rhs),};
+			expr = Binary { left: Box::from(expr), operator: operator, right: Box::from(rhs),};
 		}
 		Ok(expr)
 	}
@@ -60,7 +61,7 @@ impl Parser
 			let rhs = self.term()?;
 			expr = Binary{
 				left: Box::from(expr),
-				operator: op.clone(),
+				operator: op,
 				right: Box::from(rhs),
 			}
 		}
@@ -77,7 +78,7 @@ impl Parser
 			expr = Binary
 			{
 				left: Box::from(expr),
-				operator: op.clone(),
+				operator: op,
 				right: Box::from(rhs),
 			};
 		}
@@ -93,7 +94,7 @@ impl Parser
 			let rhs = self.unary()?;
 			expr = Binary{
 				left: Box::from(expr),
-				operator: op.clone(),
+				operator: op,
 				right: Box::from(rhs),
 			}
 		}
@@ -106,7 +107,7 @@ impl Parser
 			let op = self.previous();
 			let rhs = self.unary()?;
 			Ok(Unary{
-				operator: op.clone(),
+				operator: op,
 				right: Box::from(rhs),
 			})
 		}
@@ -205,7 +206,7 @@ impl Parser
 		false
 	}
 
-	fn advance(&mut self)->&Token
+	fn advance(&mut self)-> &Token
 	{
 		if !self.is_at_end()
 		{
@@ -214,12 +215,12 @@ impl Parser
 		self.previous()
 	}
 
-	fn peek(&mut self)->&Token
+	fn peek(&mut self)-> &Token
 	{
 		&self.tokens[self.current].clone()
 	}
 
-	fn previous(&mut self)->&Token
+	fn previous(&mut self)-> &Token
 	{
 		&self.tokens[self.current - 1].clone()
 	}
