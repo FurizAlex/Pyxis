@@ -34,7 +34,7 @@ impl Parser
 		self.expression()
 	}
 
-	fn expression(&mut self)->Result<Expr, String>
+	pub fn expression(&mut self)->Result<Expr, String>
 	{
 		self.equality()
 	}
@@ -217,7 +217,7 @@ impl Parser
 
 	fn peek(&mut self)-> &Token
 	{
-		&self.tokens[self.current].clone()
+		&self.tokens[self.current]
 	}
 
 	fn previous(&mut self)-> &Token

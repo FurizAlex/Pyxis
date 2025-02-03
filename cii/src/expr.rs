@@ -58,10 +58,10 @@ impl StractValue {
 }
 
 pub enum Expr {
-	Binary { left: Box<Expr>, operator: Token, right:Box<Expr>},
+	Binary { left: Box<Expr>, operator: &Token, right:Box<Expr>},
 	Grouping { expression: Box<Expr> },
 	Lateral { value: StractValue },
-	Unary { operator: Token, right: Box<Expr> }
+	Unary { operator: &Token, right: Box<Expr> }
 }
 
 impl Expr {
@@ -107,8 +107,8 @@ mod tests {
 			panoll: "*".to_string(), 
 			stract: None,
 			line_number: 0};
-		let ast = Binary { left: Box::from(Unary {operator:minus_token, right: Box::from(onetwothree),}),
-			operator:multi,
+		let ast = Binary { left: Box::from(Unary {operator:&minus_token, right: Box::from(onetwothree),}),
+			operator:&multi,
 			right: Box::from(group)};
 		let result = ast.to_string();
 		assert_eq!(result, "(* (- 123) (group: 45.67))");
