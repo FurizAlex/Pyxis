@@ -16,7 +16,7 @@ fn unwrap_as_f32(stract: Option<scanner::StractValue>)->f32
 	{
 		Some(scanner::StractValue::IntValue(x))=>x as f32,
 		Some(scanner::StractValue::FloatValue(x))=>x as f32,
-		_=>panic!("Could not unwrap<j float32")
+		_=>panic!("Could not unwrap<j Float [32bit]")
 	}
 }
 
@@ -26,7 +26,7 @@ fn unwrap_as_string(stract: Option<scanner::StractValue>)->String
 	{
 		Some(scanner::StractValue::StringValue(s))=>s.clone(),
 		Some(scanner::StractValue::IdentifierValue(s))=>s.clone(),
-		_=>panic!("Could not unwrap<j string")
+		_=>panic!("Could not unwrap<j String")
 	}
 }
 
@@ -52,7 +52,7 @@ impl StractValue {
 			TokenType::True => Self::True,
 			TokenType::Nil => Self::Nil,
 			TokenType::Null => Self::Null,
-			_=>panic!("Could not create stractValue<j from {:?}", token),
+			_=>panic!("Could not create StractValue <j from {:?}", token),
 		}
 	}
 }

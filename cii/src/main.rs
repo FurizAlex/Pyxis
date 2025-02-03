@@ -40,7 +40,7 @@ fn run_prompt()->Result<(), String>
 		match io::stdout().flush()
 		{
 			Ok(_) => (),
-			Err(_) => return Err("could not release stdout".to_string()),
+			Err(_) => return Err("Could not empty output [STANDARD]".to_string()),
 		}
 
 		let stdin = io::stdin();
@@ -51,7 +51,7 @@ fn run_prompt()->Result<(), String>
 			Ok(n) => {
 				if n <= 1
 				{
-					println!("ERROR: returned a empty byte");
+					println!("ERROR: returned an empty byte");
 					return Ok(());
 				}
 			}
@@ -74,7 +74,7 @@ fn main() {
 	let args: Vec<String> = env::args().collect();
 	
 	if args.len() > 2 {
-		println!("USAGE: j< pscript[script] over arg > 2");
+		println!("USAGE: j< pscript[Script] - Script cannot be over argument > 2");
 		exit(64);
 	}
 	else if args.len() == 2

@@ -136,7 +136,7 @@ impl Parser
 					value: StractValue::from_token(token.clone()),
 				}
 			}
-			_ => return Err("Expected [decent] expression".to_string()),
+			_ => return Err("Expected [decent] literal or expression".to_string()),
 		}
 
 		self.advance();
