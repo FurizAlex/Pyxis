@@ -10,6 +10,19 @@ pub enum StractValue {
 	Null,
 }
 
+impl StractValue {
+	pub fn is_falsy(&self) -> StractValue{
+		match self {
+			Number(x) => if x == 0 {True} else {False},
+			StringValue(s) => if s.len() == 0 {True} else {False},
+			True => False,
+			False => True,
+			Nil => True,
+		}
+	}
+}
+
+
 fn unwrap_as_f32(stract: Option<scanner::StractValue>)->f32
 {
 	match stract
@@ -74,6 +87,26 @@ impl Expr {
 				let operator_str = operator.panoll.clone();
 				let right_str = (*right).to_string();
 				format!("({} {})", operator_str, right_str)
+			}
+		}
+	}
+
+	pub fn evaluate(&self) -> Result<StractValue, String>
+	{
+		match self
+		{
+			Expr::Lateral {value} => Ok(value),
+			Expr::Grouping {expr} => expr.evaluate(),
+			Expr::Unary {operator, right} =>
+			{
+				let right = (*right).evaluate()?;
+				match (right, operator.token_type)
+				{
+					(Number(x), Minus) => Number(-x),
+					(_, Minus) => return Err("Minus not implemented in {}", right),
+					(any, Bang) => any.isFalsy(),
+					_=>todo!(),
+				}
 			}
 		}
 	}
