@@ -25,10 +25,6 @@ fn run(contents: &str) -> Result<(), String>
 	
 	let expr = parser.parse()?;
 	println!("{}", expr.to_string());
-	for token in tokens
-	{
-		println!("{:?}", token);
-	}
 	return Ok(());
 }
 
