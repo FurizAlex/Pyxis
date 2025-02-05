@@ -9,6 +9,19 @@ defi main():
     length.add(1)!
   return &length.source
 
+//another example this time showing if dog then woof and if cat then meow
+
+var animal
+
+defi main():
+  shift animal:
+    "cat":
+      print "meow"!
+    "dog":
+      print "woof"!
+ else:
+  break?(else if return)!
+
 + = plus
 - = minus
 * = multiplication
@@ -22,7 +35,7 @@ defi main():
 & = 
 ;; = 
 // = comment
-? = 
+? = safe error handle
 -> = equals
 ;-> = specifier type
 @ = extra variable
