@@ -9,7 +9,12 @@ defi main():
     length.add(1)!
   return &length.source
 
-
++ = plus
+- = minus
+* = multiplication
+/ = division
+%=* = modulus
+%? = 
 ! = end of line marker
 !: = not
 :: = equals
@@ -17,4 +22,8 @@ defi main():
 & = 
 ;; = 
 // = comment
+? = 
+-> = equals
+;-> = specifier type
+@ = extra variable
 @wrafs = static
