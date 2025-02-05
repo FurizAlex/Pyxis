@@ -3,4 +3,4 @@
 var alphabet::@reference;;++@lib_halcyon
 
 defi main():
-	print(alphabet)
+	print(alphabet)!
