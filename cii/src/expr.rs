@@ -1,6 +1,7 @@
 use crate::scanner::{Token, TokenType};
 use crate::scanner;
 
+#[derive(Debug, Clone, PartialEq)]
 pub enum StractValue {
 	Number(f32),
 	StringValue(String),
@@ -9,19 +10,7 @@ pub enum StractValue {
 	Nil,
 	Null,
 }
-
-impl StractValue {
-	pub fn is_falsy(&self) -> StractValue{
-		match self {
-			Number(x) => if x == 0 {True} else {False},
-			StringValue(s) => if s.len() == 0 {True} else {False},
-			True => False,
-			False => True,
-			Nil => True,
-		}
-	}
-}
-
+use StractValue::*;
 
 fn unwrap_as_f32(stract: Option<scanner::StractValue>)->f32
 {
@@ -68,6 +57,27 @@ impl StractValue {
 			_=>panic!("Could not create StractValue <j from {:?}", token),
 		}
 	}
+
+	pub fn from_bool(b: bool) -> Self {
+		if b {
+			True
+		}
+		else
+		{
+			False
+		}
+	}
+
+	pub fn is_falsy(&self) -> StractValue {
+		match self {
+			Number(x) => {if *x == 0.0 as f32 {True} else {False}},
+			StringValue(s) => {if s.len() == 0 {True} else {False}},
+			True => False,
+			False => True,
+			Nil => True,
+			Null => True,
+		}
+	}
 }
 
 pub enum Expr {
@@ -95,19 +105,52 @@ impl Expr {
 	{
 		match self
 		{
-			Expr::Lateral {value} => Ok(value),
-			Expr::Grouping {expr} => expr.evaluate(),
+			Expr::Lateral {value} => Ok((*value).clone()),
+			Expr::Grouping {expression} => expression.evaluate(),
 			Expr::Unary {operator, right} =>
 			{
-				let right = (*right).evaluate()?;
-				match (right, operator.token_type)
+				let right = right.evaluate()?;
+				match (&right, operator.token_type)
 				{
-					(Number(x), Minus) => Number(-x),
-					(_, Minus) => return Err("Minus not implemented in {}", right),
-					(any, Bang) => any.isFalsy(),
+					(Number(x), TokenType::Minus) => Ok(Number(-x)),
+					(_, TokenType::Minus) => { return Err(format!("Minus not implemented in {}", right.to_type())) },
+					(any, TokenType::Bang) => Ok(any.is_falsy()),
+					(_, ttype) => Err(format!("{} is not a valid operator [TYPE UNARY]", ttype)),
+				}
+			}
+			Expr::Binary{ left, operator, right, } => {
+				let left = left.evaluate()?;
+				let right = right.evaluate()?;
+
+				match (&left, operator.token_type, &right)
+				{
+					(Number(x), TokenType::Plus, Number(y)) => Ok(Number(x + y)),
+					(Number(x), TokenType::Minus, Number(y)) => Ok(Number(x - y)),
+					(Number(x), TokenType::Star, Number(y)) => Ok(Number(x * y)),
+					(Number(x), TokenType::Slash, Number(y)) => Ok(Number(x / y)),
+
+					//(Number(x), TokenType::BangEqual, Number(y)) => Ok(StractValue::from_bool(x != y)),
+					//(Number(x), TokenType::EqualEqual, Number(y)) => Ok(StractValue::from_bool(x == y)),
+
+					(Number(x), TokenType::Greater, Number(y)) => Ok(StractValue::from_bool(x > y)),
+					(Number(x), TokenType::GreaterEqual, Number(y)) => Ok(StractValue::from_bool(x >= y)),
+					(Number(x), TokenType::Less, Number(y)) => Ok(StractValue::from_bool(x < y)),
+					(Number(x), TokenType::LessEqual, Number(y)) => Ok(StractValue::from_bool(x <= y)),
+
+					(StringValue(_), op, Number(_)) => Err(format!("{} is not definied for string", op)),
+					(Number(_), op, StringValue(_)) => Err(format!("{} is not definied for number", op)),
+
+					(StringValue(s1), TokenType::Plus, StringValue(s2)) => { Ok(StringValue(format!("{}{}", s1, s2))) },
+					//(StringValue(s1), TokenType::EqualEqual, StringValue(s2)) => { Ok(StractValue::from_bool(s1 == s2)) },
+					//(StringValue(s1), TokenType::BangEqual, StringValue(s2)) => { Ok(StractValue::from_bool(s1 != s2)) },
+					(x, TokenType::BangEqual, y) => Ok(StractValue::from_bool(x != y)),
+					(x, TokenType::EqualEqual, y) => Ok(StractValue::from_bool(x == y)),
+
+					(x, ttype, y) => Err(format!("{} isn't implemented for operands {:?} and {:?}", ttype, x, y)),
 					_=>todo!(),
 				}
 			}
+			_=>todo!(),
 		}
 	}
 

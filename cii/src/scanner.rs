@@ -136,7 +136,7 @@ impl Scanner {
 				self.add_token(token);
 			}
 			'<' => {
-				let token = if self.do_match(':')
+				let token = if self.do_match(';')
 				{
 					LessEqual
 				}
@@ -147,7 +147,7 @@ impl Scanner {
 				self.add_token(token);
 			}
 			'>' => {
-				let token = if self.do_match(':')
+				let token = if self.do_match(';')
 				{
 					GreaterEqual
 				}
