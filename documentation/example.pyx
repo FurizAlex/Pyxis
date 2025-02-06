@@ -20,7 +20,19 @@ defi main():
     "dog":
       print "woof"!
  else:
-  break?(else if return)!
+  break?
+
+//an example of using write instead
+
+var animal
+
+defi main():
+  if animal:"cat":
+    self.write("meow")
+  else if animal:"dog":
+    self.write("woof")
+  else:
+    break?
 
 + = plus
 - = minus
