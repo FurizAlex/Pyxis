@@ -44,6 +44,17 @@ impl StractValue {
 		}
 	}
 
+	pub fn to_type(&self) -> &str {
+		match self {
+			StractValue::Number(_) => "Number",
+			StractValue::StringValue(_) => "String",
+			StractValue::True => "Boolean",
+			StractValue::False => "Boolean",
+			StractValue::Nil => "nil",
+			StractValue::Null => "null",
+		}
+	}
+
 	pub fn from_token(token: Token)->Self
 	{
 		match token.token_type
@@ -85,6 +96,7 @@ pub enum Expr {
 	Grouping { expression: Box<Expr> },
 	Lateral { value: StractValue },
 	Unary { operator: Token, right: Box<Expr> }
+	Variable { name: Token, },
 }
 
 impl Expr {
@@ -98,6 +110,7 @@ impl Expr {
 				let right_str = (*right).to_string();
 				format!("({} {})", operator_str, right_str)
 			}
+			Expr::Variable { name } => format!("(var {})", name.panoll),
 		}
 	}
 
@@ -105,6 +118,7 @@ impl Expr {
 	{
 		match self
 		{
+			Expr::Variable {name} => todo!(),
 			Expr::Lateral {value} => Ok((*value).clone()),
 			Expr::Grouping {expression} => expression.evaluate(),
 			Expr::Unary {operator, right} =>
@@ -146,11 +160,14 @@ impl Expr {
 					(x, TokenType::BangEqual, y) => Ok(StractValue::from_bool(x != y)),
 					(x, TokenType::EqualEqual, y) => Ok(StractValue::from_bool(x == y)),
 
+					(StringValue(s1), TokenType::Greater, StringValue(s2)) => Ok(StractValue::from_bool(s1 > s2)),
+					(StringValue(s1), TokenType::GreaterEqual, StringValue(s2)) => Ok(StractValue::from_bool(s1 >= s2)),
+					(StringValue(s1), TokenType::Less, StringValue(s2)) => Ok(StractValue::from_bool(s1 < s2)),
+					(StringValue(s1), TokenType::LessEqual, StringValue(s2)) => Ok(StractValue::from_bool(s1 <= s2)),
+
 					(x, ttype, y) => Err(format!("{} isn't implemented for operands {:?} and {:?}", ttype, x, y)),
-					_=>todo!(),
 				}
 			}
-			_=>todo!(),
 		}
 	}
 

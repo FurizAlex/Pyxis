@@ -1,22 +1,11 @@
 use crate::expr::{Expr::*, Expr, StractValue};
 use crate::scanner::{Token, TokenType::*, TokenType};
+use crate::statement::Statement;
 
 pub struct Parser
 {
 	tokens: Vec<Token>,
 	current: usize,
-}
-
-macro_rules! match_tokens {
-	($parser:ident, $($token:ident),+) =>{
-		{
-			let mut result = false;
-			{
-				$(result |= $parser.match_token($token);)*
-			}
-			result
-		}
-	}
 }
 
 impl Parser
@@ -30,8 +19,93 @@ impl Parser
 		}
 	}
 
-	pub fn parse(&mut self) -> Result<Expr, String>{
-		self.expression()
+	pub fn parse(&mut self) -> Result<Vec<Statement>, String> {
+		let mut statements = vec![];
+		let mut errs = vec![];
+
+		while !self.is_at_end()
+		{
+			let statement = self.declaration();
+			match statement
+			{
+				Ok(s) => statements.push(s),
+				Err(msg) => errs.push(msg),
+			}
+		}
+		
+		if errs.len() == 0 {
+			Ok(statements)
+		}
+		else
+		{
+			Err(errs.join("\n"))
+		}
+	}
+
+	fn declaration(&mut self) -> Result<Statement, String>
+	{
+		if self.match_token(Var)
+		{
+			match self.var_declaration() {
+				Ok(statement) => Ok(statement),
+				Err(msg) => {
+					self.synchronize();
+					Err(msg)
+				}
+			}
+		}
+		else
+		{
+			self.statement()
+		}
+	}
+
+	fn var_declaration(&mut self) -> Result<Statement, String>
+	{
+		let token = self.consume(Identifier, "Expected Variable name")?;
+		let initializer;
+		if self.match_token(Equal)
+		{
+			initializer = self.expression()?;
+		}
+		else
+		{
+			initializer = Lateral { value: StractValue::Nil };
+		}
+		self.consume(Semicolon, "Expect end of line declaration [!]")?;
+		Ok(Statement::Var {
+			name: token,
+			initializer: initializer,
+		})
+	}
+
+	fn statement(&mut self) -> Result<Statement, String>
+	{
+		if self.match_token(&Print)
+		{
+			self.print_statement()
+		}
+		else
+		{
+			self.expression_statement()
+		}
+	}
+
+
+	fn print_statement(&mut self) -> Result<Statement, String>
+	{
+		let value = self.expression()?;
+		self.consume(Bang, "Expected end of line statement [!]")?;
+		Ok(Statement::Print {
+			expression: value
+		})
+	}
+
+	fn expression_statement(&mut self) -> Result<Statement, String>
+	{
+		let expr = self.expression()?;
+		self.consume(Bang, "Expected end of line statement [!]")?;
+		Ok(Statement::Expression {expression: expr})
 	}
 
 	pub fn expression(&mut self)->Result<Expr, String>
@@ -136,6 +210,10 @@ impl Parser
 					value: StractValue::from_token(token.clone()),
 				}
 			}
+			Var => {
+				self.advance();
+				result = Variable { name:self.previous() };
+			}
 			_ => return Err("Expected [decent] literal or expression".to_string()),
 		}
 
@@ -160,13 +238,14 @@ impl Parser
 		//}
 	}
 
-	fn consume(&mut self, token_type: TokenType, msg:&str) ->Result<(), String>
+	fn consume(&mut self, token_type: TokenType, msg:&str) ->Result<Token, String>
 	{
 		let token = self.peek();
 		if token.token_type == token_type
 		{
 			self.advance();
-			Ok(())
+			let token = self.previous();
+			Ok(token)
 		}
 		else
 		{

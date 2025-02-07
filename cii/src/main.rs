@@ -1,36 +1,42 @@
 mod scanner;
 mod expr;
 mod parser;
+mod interpreter;
+mod statement;
 use crate::scanner::*;
 use crate::parser::*;
+use crate::interpreter::*;
+use crate::statement::{Statement::*};
 
 use std::env;
 use std::fs;
 use std::process::exit;
 use std::io::{self, BufRead, Write};
 
+
 fn run_file(path: &str)->Result<(), String> 
 {
+	let mut interpreter = Interpreter::new();
 	match fs::read_to_string(path) {
 		Err(msg) => return Err(msg.to_string()),
-		Ok(contents)=>return run(&contents),
+		Ok(contents)=>return run(&mut interpreter, &contents),
 	}
 }
 
-fn run(contents: &str) -> Result<(), String>
+fn run(interpreter: &mut Interpreter, contents: &str) -> Result<(), String>
 {
 	let mut scanner = Scanner::new(contents);
 	let tokens = scanner.scan_tokens()?;
 	let mut parser = Parser::new(tokens);
 	
-	let expr = parser.parse()?;
-	let result = expr.evaluate()?;
-	println!("{}", result.to_string());
+	let statement = parser.parse()?;
+	interpreter.interpret(statement);
 	return Ok(());
 }
 
 fn run_prompt()->Result<(), String>
 {
+	let mut interpreter = Interpreter::new();
 	loop
 	{
 		print!("> ");
@@ -56,7 +62,7 @@ fn run_prompt()->Result<(), String>
 		}
 
 		println!("{}", buffer);
-		match run(&buffer)
+		match run(&mut interpreter, &buffer)
 		{
 			Ok(_) => (),
 			Err(msg) => { 
