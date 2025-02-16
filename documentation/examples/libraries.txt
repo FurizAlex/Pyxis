@@ -1,0 +1,138 @@
+LIBRARIES FOR PSCRIPT
+=====================
+
+MALLOC & CALLOC:
+	@malloc
+	@calloc
+	>++{}of = sizeOf equivelant
+	&+<* = ambersign equivelant
+	\+< = newline
+	*
+	& = reference/additional variable/define
+	&* = pointer
+	{;!} = null terminator
+
+HALCYON: The Standard Programming Library
+	  STANDARD:
+		alphabetic()
+		alphanumeric()
+		numeric()
+		ascii()
+		printable([bool:])
+		length()
+		copy()
+		cat()
+		caseupper()
+		caselower()
+		search()
+		searchrfs()
+		compare()
+		instringfs()
+		atoi()
+		duplicate()
+		join()
+		trimfs()
+		splitterfs()
+		apply([*++<func:])
+
+	  IF MEMORY IS ENABLED:
+	    memorset()
+	    memorcopy()
+	    memormove()
+	    memorsearch()
+	    memorcompare()
+	    bzero()
+	    stkitoa()
+
+
+JELLYBEANS: The Standard Game Development Library
+	KEYWORDS:
+		abs
+		absf
+		absi
+		acos
+		byte
+		clamp
+		clampf
+		deg_to_rad
+		error_commit
+		floor
+		lerp
+		lerp_with_angle
+		lerpf
+		logj
+		max
+		maxf
+		min
+		minf
+		print
+		push_out_to_warning
+		randf
+		randf_range
+		roundup
+		roundup{format}
+		sin
+		sign
+		sign{format}
+		smooth
+		snap_up
+		snap_fac
+		sqrt
+		str()
+		tna_tan{angle::\\}
+		wrap
+		wrapf
+		transform
+		rotate
+		scale
+		position
+		@get[@[OBJECT_PATH]]
+	
+	VECTOR-TYPES:
+		Vector2
+		Vector3
+		To_Basis
+	
+	SPES-TYPES:
+		Color
+		Resource
+		Object
+		Array
+
+	FUNCTIONS:
+		physic(delta[-+K])
+		proc()
+		unha_input()
+
+ABSTRACTION: Standard UI Library
+	KEYWORDS:
+		head
+		body
+		abclass
+		div
+		pargrph
+		type
+		width
+		height
+		scale[]
+		position
+		display[0/0;0px*0px]
+
+	ANNOTATIONS:
+		@keyframe
+		@animation
+		@ab_class
+
+	FUNCTIONS:
+		animation()
+		draw()
+		drawpfs()
+		specify()
+		keyframige()
+		jax()
+		artboard()
+		hover()
+
+LUMIC: 
+
+GENU: Standard Kernal/Extention Library

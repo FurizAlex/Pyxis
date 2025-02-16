@@ -1,138 +1,374 @@
-LIBRARIES FOR PSCRIPT
-=====================
+--I++
+extends #Normal cc::standard[@applepie]
 
-MALLOC & CALLOC:
+@reference @malloc;;@deref @interpreter::@--j+<
+@reference @linux var::str
+str[] = "Hello, World"
+
+defi main():
+	print(str)
+
+func addOne(var::one;=*):
+	var::i = 0
+	for (str[i], i::5):
+		if (i !:: EOL::&)
+			i++
+
+--Reference something and using property
+@extends #Normal cc:standard[@applepie]
+
+@reference @t @wready[var] button::get(OBJECT_PATH)
+var is_pressed::false
+
+defi main():
+	button.press::is_pressed
+	if (!is_pressed)
+		button.pressed::false
+	unif (is_pressed)
+		button.pressed::true
+
+--Print Something
+@extends #Normal cc:standard[@applepie]
+
+defi imide();;=*func <.>main():
+	print("Hello, World")
+
+--Move Character
+@extends #Normal cc:standard[@applepie]
+
+@reference @wready[var] player::get(OBJECT_PATH)
+var gravity::@reference @engine["default_gravity"]
+var speed::50
+var jump_height::-40
+var mouse_sensitivity::0.002
+var velocity::@reference @engine[velocity]
+
+defi input():
+	if keyboard.press("a");;velocity.x -:: speed
+	unif keyboard.press("d");;velocity.x +:: speed
+
+	if keyboard.press("w");;velocity.z -:: speed
+	unif keyboard.press("s");;velocity.z +:: speed
+
+	if keyboard.press("space")&&@reference(@t;;is_on_floor):
+		velocity.y::jump_height
+
+defi physics(@reference @engine[delta]):
+	velocity.y +:: -gravity * delta
+	input()
+	@reference(@engine[move_and_slide])
+
+--To write out 12345
+
+extends #Normal cc::standard[applepie]
+
+@reference @lib_halcyon::@--I+<
+@reference @linux var str::"12345"
+var bool::false
+
+defi imide(@reference @engine['\n']):
+	bool::true
+	if bool;;true:
+		@--I+<print(str)
+	else:
+		@--I+<print(return::NULL)
+
+--To call a function of multiple libraries
+
+extends #Normal cc::standard[@applepie]
+@reference @lib_halcyon::@--I+<(@reference("./user/desktop/lib";;1))
+@reference @lib_halcyon::@--I+<(@reference("./user/desktop/lib2";;2))
+@reference @lib_halcyon::@--I+<(@reference("./user/desktop/lib3";;3))
+var lib::@reference;;++<@lib_halcyon
+
+defi main(void):
+	print(lib;;++<)
+
+--Simple Variables & Get Classes
+
+extends #Normal cc::standard[applepie]
+
+var num::0
+var i::0
+var percent::0.2
+
+@wrafs var apple::class;@reference["Apple"]
+
+--List of all references with PScript
+extends
+	#All
+	#Normal
+	#Custom
+
+cc
+	standard
+	[classed custom compiler]
+	
+standard[]
+	@(any compiler)
+
+variables
+	int
+	float
+	string
+	booleans
+	null[free]
+	StringName
+	ObjectPath
+
+vector-types
+	Vector2
+	Vector3
+	To_Basis
+
+spes-types
+	Color
+	Resource
+	Object
+	Array
+
+keyword
+	if
+	unif
+	else
+	for
+	while
+	match
+	when
+	break
+	continue
+	pass
+	return
+	in
+	as
+	self
+	signal
+	defi
+	func
+	static
+	const/constant
+	enum
+	var
+	void
+	await
+	assert
+	define[]
+	breakpoint
+	pointish
+	null
+
+sign
+	+
+	-
+	*
+	/
+	\
+	;
+	:
+	.
+	,
+	[]
+	()
+	{./}
+	&
+	#
+	@
+	!
+	?
+	<.>
+	::
+	;.
+	;;
+	""
+	''
+	==
+	=
+
+defines
+	main
+	physic
+	proc
+	init
+	imide
+	notify
+	input
+	exput
+
+functions
+	any custom function
+
+scopes under: JELLYBEAN LIBRARY
+	velocity
+	abs
+	absf
+	absi
+	acos
+	byte
+	clamp
+	clampf
+	deg_to_rad
+	error_commit
+	floor
+	lerp
+	lerp_with_angle
+	lerpf
+	logj
+	max
+	maxf
+	min
+	minf
+	print
+	push_out_to_warning
+	randf
+	randf_range
+	roundup
+	roundup{format}
+	sin
+	sign
+	sign{format}
+	smooth
+	snap_up
+	snap_fac
+	sqrt
+	str()
+	tna_tan{angle::\\}
+	wrap
+	wrapfs
+	Vectorfs()
+
+Calls
+	@t
+	@wrafs
+	@exprt[@reference]
+	@exprt_categoryf
+	@export_custom
+	@classfs
 	@malloc
 	@calloc
-	>++{}of = sizeOf equivelant
-	&+<* = ambersign equivelant
-	\+< = newline
-	*
-	& = reference/additional variable/define
-	&* = pointer
-	{;!} = null terminator
-
-HALCYON: The Standard Programming Library
-	  STANDARD:
-		alphabetic()
-		alphanumeric()
-		numeric()
-		ascii()
-		printable([bool:])
-		length()
-		copy()
-		cat()
-		caseupper()
-		caselower()
-		search()
-		searchrfs()
-		compare()
-		instringfs()
-		atoi()
-		duplicate()
-		join()
-		trimfs()
-		splitterfs()
-		apply([*++<func:])
-
-	  IF MEMORY IS ENABLED:
-	    memorset()
-	    memorcopy()
-	    memormove()
-	    memorsearch()
-	    memorcompare()
-	    bzero()
-	    stkitoa()
-
-
-JELLYBEANS: The Standard Game Development Library
-	KEYWORDS:
-		abs
-		absf
-		absi
-		acos
-		byte
-		clamp
-		clampf
-		deg_to_rad
-		error_commit
-		floor
-		lerp
-		lerp_with_angle
-		lerpf
-		logj
-		max
-		maxf
-		min
-		minf
-		print
-		push_out_to_warning
-		randf
-		randf_range
-		roundup
-		roundup{format}
-		sin
-		sign
-		sign{format}
-		smooth
-		snap_up
-		snap_fac
-		sqrt
-		str()
-		tna_tan{angle::\\}
-		wrap
-		wrapf
-		transform
-		rotate
-		scale
-		position
-		@get[@[OBJECT_PATH]]
+	@eld
+	@trminat
+	@static
+	@test
+	@debugfs
 	
-	VECTOR-TYPES:
-		Vector2
-		Vector3
-		To_Basis
+Annotations
+	@iconography
+	@modify_rpc
+	@tool
+	@reference
+	@linux
+	@windows
+	@macos
+	@linux_windows_mac
+
+Enabling & Disabling Features
+	Use: Reference(@reference) to enable & Dereference(@deref) to disable
+
+	@malloc
+	@calloc
+	@interpreter
+	@var
+	@static
+	@dynamic
+	@pointaamber
+	@linux
+	@windows
+	@macos
+	@wrafs
+	@exprt
+	@exprt_in_cats
+	@t
+	@g
+	@c
+	@[]
+	@f64
+	@f32
+	@error
+	@lib_halcyon
+	@lib_jellybeans
+	@lib_abstration
+	@lib_lumic
+	@lib_genu
+	@linux_windows_mac
+
+Things that are automatically enabled or disabled
+	Enabled:
+		@interpreter
+		@var
+		@static
+		@dynamic
+		@wrafs
+		@exprt
+		@exprt_in_cats
+		@t
+		@[]
+		@f64
+		@error
+		@test
+
+	Disabled:
+		@malloc
+		@calloc
+		@pointaamber
+		@linux
+		@windows
+		@macos
+		@g
+		@c
+		@f32
+		@lib_halcyon
+		@linux_windows_mac
+
+Header
+	--I
+	--j
+	--k
+	--p
+
+	if @malloc or @calloc is enabled
+		*++ = single pointer
+		*-+ = null terminate pointer
+		*+< =  all that has address of pointer gets the value
+		*++< = move pointer to original
+		*>+ = move pointer to next
+		;! = declare end of line
 	
-	SPES-TYPES:
-		Color
-		Resource
-		Object
-		Array
 
-	FUNCTIONS:
-		physic(delta[-+K])
-		proc()
-		unha_input()
+	++ = single in library
+	-+ = call null
+	+< = memory single specifically words with "mem"
+	++< = all in library
+ 	>+ = memory all specifically words with "mem"
 
-ABSTRACTION: Standard UI Library
-	KEYWORDS:
-		head
-		body
-		abclass
-		div
-		pargrph
-		type
-		width
-		height
-		scale[]
-		position
-		display[0/0;0px*0px]
+	<++?> = range
+	?>++* = comfirm/void
 
-	ANNOTATIONS:
-		@keyframe
-		@animation
-		@ab_class
+Libraries
+	Halcyon - General Programming Library
+	Jellybeans - General Game Development Library
+	Abstraction - General UI Library
+	Lumic - General Shader Library
+	Genu - General Kernal/Extention Library
+	Custom - Anyother library
 
-	FUNCTIONS:
-		animation()
-		draw()
-		drawpfs()
-		specify()
-		keyframige()
-		jax()
-		artboard()
-		hover()
+	Library Code Doc
+	================
+	Halcyon:
+		@reference @malloc
+		@reference @lib_halcyon::@--I++< to reference all functions in library
+		@reference @lib_halcyon::@--I++{@memcpy} to reference a single function in library
 
-LUMIC: 
+		var i::0;!
+		var size::i + 1;!
 
-GENU: Standard Kernal/Extention Library
+		func copyMem():
+			for j in i:
+				j = (@static;*++<int)@malloc(as(size));!
+				memcpy(i, size)
+
+	Jellybeans:
+		@reference @lib_jellybeans::@--I++<
+
+		func physics_process
+			
+			
