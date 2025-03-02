@@ -47,3 +47,5 @@
 - Ternary (?::<==>true:false)
 
 - Macro Expansion (;;)
+
+- In Memory (++>) (<++)
