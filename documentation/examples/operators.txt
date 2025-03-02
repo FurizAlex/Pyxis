@@ -38,9 +38,9 @@
 
 - Less (<)
 
-- MoreEqual (=>)
+- MoreEqual (:>) (>:)
 
-- LessEqual (<=)
+- LessEqual (<:) (:<)
 
 - Debug (?)
 
@@ -49,3 +49,9 @@
 - Macro Expansion (;;)
 
 - In Memory (++>) (<++)
+
+- Pipe (|)
+
+- Or (||) (|:)
+
+- Assign (^)
