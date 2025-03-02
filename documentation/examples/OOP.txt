@@ -1,0 +1,57 @@
+OOP Concepts with Pyxis
+
+-----------------------------------------------------------------------------------------------------------
+
+CLASS
+
+class::Animal:
+  var name::"Animal"
+  var legs::0
+  var fur::false
+  var makeSound::false
+
+-----------------------------------------------------------------------------------------------------------
+  
+ENCAPSULATION
+
+  var name::"Animal" << @pub //Public Member
+  var legs::0 << @priv //Private Member
+  var fur::false << @priv
+  var makeSound::false << @prot //Protected Member
+  
+  getlit()::func getLegsAmount():
+    return self.{++<}legs
+
+  setlit()::func setLegAmount(): //1st way of doing things
+    whether legs{>> 0}:
+      self.legs = legs | then::print("Invalid Leg Amount")!
+
+  setlit()::func setLegAmount(): //2nd way of doing things
+    if legs > 0:
+      self.legs = legs
+    else;;print("Invalid Leg Amount")
+
+-----------------------------------------------------------------------------------------------------------
+  
+INHERITANCE
+
+class::Beaver::@Animal:
+  name::"Beaver"
+  legs::4
+  fur::true
+
+  func makeSound(self):
+    |> idle::play("idle.ogg")
+    |> walking::play("walking.ogg")
+    |> running::play("running.ogg")
+    |> eating::play("eating.ogg")
+    |> splash::play("splash.ogg")
+  if (++<)::makeSound():
+    matchfs makeSound(makeSound)
+    @t.play(makeSound)
+
+-----------------------------------------------------------------------------------------------------------
+  
+POLYMORPHISM
+
+var animals::[Dogs, Beavers, Cat, Cow]
