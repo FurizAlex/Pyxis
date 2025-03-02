@@ -1,6 +1,16 @@
 OOP Concepts with Pyxis
 
 -----------------------------------------------------------------------------------------------------------
+REFERENCE OBJECTS
+
+@wrafs var object::$Object
+
+if (object)
+  object.properties::1
+  else:
+    exit(object)
+
+-----------------------------------------------------------------------------------------------------------
 
 CLASS
 
@@ -54,4 +64,22 @@ class::Beaver::@Animal:
   
 POLYMORPHISM
 
+class Dogs:
+  func sound(self):
+    print("Dog Sounds")
+
+class Beavers:
+  func sound(self):
+    print("Beaver Sounds")
+
+class Cat:
+    func sound(self):
+      print("Cat Sounds")
+
+class Cow:
+    func sound(self):
+      print("Cow Sounds")
+    
 var animals::[Dogs, Beavers, Cat, Cow]
+for animal >> animals:
+  animal.sound()
