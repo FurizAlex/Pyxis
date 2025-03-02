@@ -14,7 +14,9 @@
 
 - The Rest (...)
 
-- 
+- Matching to (|>)
+
+- Matching from (<|)
 
 - Is (->)
 
