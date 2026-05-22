@@ -1,9 +1,8 @@
 // --- Test
-class Greeter {
-    hello() {
+class Greeter:
+    hello():
         print "Hello"!
-    }
-}
+
 var g :: Greeter()!
 g.hello()!
 

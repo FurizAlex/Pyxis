@@ -105,6 +105,18 @@ impl Resolver {
                 self.resolveExpr(condition)?;
                 self.resolveInternal(body.as_ref())?;
             }
+			Stmt::ForStmt {
+				variable,
+				iterable,
+				body,
+			} => {
+				self.beginScope();
+				self.declare(variable);
+				self.define(variable);
+				self.resolveExpr(iterable)?;
+				self.resolveInternal(body.as_ref())?;
+				self.endScope();
+			}
         }
         Ok(())
     }

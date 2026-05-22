@@ -13,11 +13,30 @@ pub struct Interpreter {
 
 impl Interpreter {
     pub fn new() -> Self {
-        Self {
-            specials: HashMap::new(),
-            environment: Environment::new(HashMap::new()),
-        }
-    }
+	    let environment = Environment::new(HashMap::new());
+		
+	    let range_fn = LiteralValue::Callable(
+	        CallableImpl::NativeFunction(NativeFunctionImpl {
+	            name: "range".to_string(),
+	            arity: 1,
+	            fun: Rc::new(|args: &Vec<LiteralValue>| {
+	                match &args[0] {
+	                    LiteralValue::Number(end) => {
+	                        LiteralValue::Range(0, *end as i64)
+	                    }
+	                    _ => LiteralValue::Nil,
+	                }
+	            }),
+	        }),
+	    );
+	
+	    environment.define("range".to_string(), range_fn);
+	
+	    Self {
+	        specials: HashMap::new(),
+	        environment,
+	    }
+	}
 
     pub fn resolve(&mut self, locals: HashMap<usize, usize>) {
         self.environment.resolve(locals);
@@ -150,6 +169,34 @@ impl Interpreter {
                         flag = condition.evaluate(self.environment.clone())?;
                     }
                 }
+				Stmt::ForStmt {
+				    variable,
+				    iterable,
+				    body,
+				} => {
+				    let iterable_value = iterable.evaluate(self.environment.clone())?;
+				
+				    match iterable_value {
+				        LiteralValue::Range(start, end) => {
+				            for i in start..end {
+				                self.environment.define(
+				                    variable.lexeme.clone(),
+				                    LiteralValue::Number(i as f64),
+				                );
+							
+				                let statements = vec![body.as_ref()];
+				                self.interpret(statements)?;
+				            }
+				        }
+					
+				        _ => {
+				            return Err(format!(
+				                "Expected iterable in for loop, got {}",
+				                iterable_value.to_type()
+				            ));
+				        }
+				    }
+				}
                 Stmt::Function {
                     name,
                     params: _,

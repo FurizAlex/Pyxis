@@ -39,6 +39,7 @@ pub enum LiteralValue {
     False,
     Nil,
     Callable(CallableImpl),
+	Range(i64, i64),
     PyxisClass {
         name: String,
         methods: HashMap<String, PyxisFunctionImpl>,
@@ -124,6 +125,9 @@ impl LiteralValue {
             LiteralValue::True => "true".to_string(),
             LiteralValue::False => "false".to_string(),
             LiteralValue::Nil => "nil".to_string(),
+			LiteralValue::Range(start, end) => {
+				format!("{}..{}", start, end)
+			}
             LiteralValue::Callable(CallableImpl::PyxisFunction(PyxisFunctionImpl {
                 name,
                 arity,
@@ -152,6 +156,7 @@ impl LiteralValue {
             LiteralValue::True => "Boolean",
             LiteralValue::False => "Boolean",
             LiteralValue::Nil => "nil",
+			LiteralValue::Range(_, _) => "Range",
             LiteralValue::Callable(_) => "Callable",
             LiteralValue::PyxisClass {
                 name: _,

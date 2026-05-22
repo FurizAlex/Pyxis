@@ -23,6 +23,7 @@ fn getKeywordsHashmap() -> HashMap<&'static str, TokenType> {
         ("for", For),
         ("fun", Fun),
         ("if", If),
+		("in", In),
         ("nil", Nil),
         ("or", Or),
         ("print", Print),
@@ -40,6 +41,7 @@ pub struct Scanner {
     tokens: Vec<Token>,
     start: usize,
     current: usize,
+	indent_stack: Vec<usize>,
     line: usize,
 
     keywords: HashMap<&'static str, TokenType>,
@@ -53,6 +55,7 @@ impl Scanner {
             start: 0,
             current: 0,
             line: 1,
+			indent_stack: vec![0],
             keywords: getKeywordsHashmap(),
         }
     }
@@ -93,6 +96,7 @@ impl Scanner {
     }
 
     fn scanToken(self: &mut Self) -> Result<(), String> {
+		let mut spaces = 0;
         let c = self.advance();
 
         match c {
@@ -106,6 +110,33 @@ impl Scanner {
             '+' => self.add_token(Plus),
             ';' => self.add_token(Semicolon),
             '*' => self.add_token(Star),
+        	'\n' => {
+			    self.line += 1;
+			    self.add_token(Newline);
+
+			    let mut spaces = 0;
+
+			    while !self.isAtEnd() && (self.peek() == ' ' || self.peek() == '\t') {
+				    if self.peek() == ' ' {
+				        spaces += 1;
+				    } else if self.peek() == '\t' {
+				        spaces += 4;
+				    }
+				
+				    self.advance();
+				}
+			    let current_indent = *self.indent_stack.last().unwrap();
+			
+			    if spaces > current_indent {
+			        self.indent_stack.push(spaces);
+			        self.add_token(Indent);
+			    } else {
+			        while spaces < *self.indent_stack.last().unwrap() {
+			            self.indent_stack.pop();
+			            self.add_token(Dedent);
+			        }
+			    }
+			},
             '!' => {
                 let token = if self.char_match(':') {
                     // !=
@@ -166,7 +197,6 @@ impl Scanner {
                 }
             },
             ' ' | '\r' | '\t' => {}
-            '\n' => self.line += 1,
             '"' => self.string()?,
 
             c => {
@@ -302,6 +332,9 @@ pub enum TokenType {
     Plus,
     Semicolon,
 	Colon,
+	Indent,
+	Dedent,
+	Newline,
     Slash,
     Star,
 
@@ -330,6 +363,7 @@ pub enum TokenType {
     Fun,
     For,
     If,
+	In,
     Nil,
     Or,
     Print,

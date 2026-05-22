@@ -1,12 +1,6 @@
 // --- Test
-var a :: 0!
-var temp!
-
-for (var b :: 1! a < 21! b :: temp + b) {
-  print a!
-  temp :: a!
-  a :: b!
-}
+for i in range(10):
+	print i!
 
 // --- Expected
 // 0
@@ -15,5 +9,7 @@ for (var b :: 1! a < 21! b :: temp + b) {
 // 2
 // 3
 // 5
+// 6
+// 7
 // 8
-// 13
+// 9

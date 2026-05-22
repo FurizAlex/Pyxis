@@ -1,9 +1,8 @@
 // --- Test
 var a :: 2!
 
-fun mod() {
+fun mod():
   a :: 3!
-}
 
 mod()!
 

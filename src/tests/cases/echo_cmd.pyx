@@ -2,7 +2,7 @@
 fun cmd <- "echo hello"!
 
 var result :: cmd()!
-print result;
+print result!
 
 // --- Expected
 // "hello

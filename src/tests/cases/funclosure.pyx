@@ -1,13 +1,11 @@
 // --- Test
-fun make_counter() {
+fun make_counter():
   var i :: 0!
-  fun count() {
+  fun count():
     i :: i + 1!
     print i!
-  }
 
-  return count!
-}
+return count!
 
 var counter1 :: make_counter()!
 var counter2 :: make_counter()!

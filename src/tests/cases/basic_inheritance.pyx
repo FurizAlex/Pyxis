@@ -1,14 +1,10 @@
 // --- Test
 
-class Animal {
-    speak() {
-        print "Hello"!
-    }
-}
+class Animal:
+    speak():
+		print("hello")!
 
-class Cat < Animal {
-
-}
+class Cat < Animal:
 
 var cat :: Cat()!
 print cat!

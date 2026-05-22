@@ -35,16 +35,21 @@ impl Parser {
         let mut stmts = vec![];
         let mut errs = vec![];
 
-        while !self.isAtEnd() {
-            let stmt = self.declaration();
-            match stmt {
-                Ok(s) => stmts.push(s),
-                Err(msg) => {
-                    errs.push(msg);
-                    self.synchronize();
-                }
-            }
-        }
+		while !self.isAtEnd() {		
+		    while self.matchToken(Newline) {}
+		    if self.isAtEnd() {
+		        break;
+		    }
+		    let stmt = self.declaration();
+
+		    match stmt {
+		        Ok(s) => stmts.push(s),
+		        Err(msg) => {
+		            errs.push(msg);
+		            self.synchronize();
+		        }
+		    }
+		}
 
         if errs.len() == 0 {
             Ok(stmts)
@@ -66,34 +71,40 @@ impl Parser {
     }
 
 	#[allow(non_snake_case)]
-    fn classDeclaration(&mut self) -> Result<Stmt, String> {
-        let name = self.consume(Identifier, "Expected name after 'class' keyword.")?;
-        let superclass = if self.matchToken(TokenType::Less) {
-            self.consume(Identifier, "Expected superclass name after '<'.")?;
-            Some(Expr::Variable {
-                id: self.getId(),
-                name: self.previous(),
-            })
-        } else {
-            None
-        };
-
-        self.consume(LeftBrace, "Expected '{' before class body.")?;
-
-        let mut methods = vec![];
-        while !self.check(RightBrace) && !self.isAtEnd() {
-            let method = self.function(FunctionKind::Method)?;
-            methods.push(Box::new(method));
-        }
-
-        self.consume(RightBrace, "Expected '}' after class body.")?;
-
-        Ok(Stmt::Class {
-            name,
-            methods,
-            superclass,
-        })
-    }
+	fn classDeclaration(&mut self) -> Result<Stmt, String> {
+	    let name = self.consume(Identifier, "Expected name after 'class' keyword.")?;
+	
+	    let superclass = if self.matchToken(TokenType::Less) {
+	        self.consume(Identifier, "Expected superclass name after '<'.")?;
+		
+	        Some(Expr::Variable {
+	            id: self.getId(),
+	            name: self.previous(),
+	        })
+	    } else {
+	        None
+	    };
+	
+	    self.consume(Colon, "Expected ':' after class declaration")?;
+	    self.consume(Newline, "Expected newline")?;
+	
+	    let mut methods = vec![];
+	
+	    if self.matchToken(Indent) {
+	        while !self.check(Dedent) && !self.isAtEnd() {
+	            let method = self.function(FunctionKind::Method)?;
+	            methods.push(Box::new(method));
+	        }
+		
+	        self.consume(Dedent, "Expected end of class block")?;
+	    }
+	
+	    Ok(Stmt::Class {
+	        name,
+	        methods,
+	        superclass,
+	    })
+	}
 
     fn function(&mut self, kind: FunctionKind) -> Result<Stmt, String> {
         let name = self.consume(Identifier, &format!("Expected {kind:?} name"))?;
@@ -130,7 +141,9 @@ impl Parser {
         }
         self.consume(RightParen, "Expected ')' after parameters.")?;
 
-        self.consume(LeftBrace, &format!("Expected '{{' before {kind:?} body."))?;
+        self.consume(Colon, "Expected ':' before block");
+		self.consume(Newline, "Expected newline after ':'");
+		self.consume(Indent, "Expected indented block");
         let body = match self.blockStatement()? {
             Stmt::Block { statements } => statements,
             _ => panic!("Block statement parsed something that was not a block"),
@@ -168,8 +181,6 @@ impl Parser {
     fn statement(&mut self) -> Result<Stmt, String> {
         if self.matchToken(Print) {
             self.printStatement()
-        } else if self.matchToken(LeftBrace) {
-            self.blockStatement()
         } else if self.matchToken(If) {
             self.ifStatement()
         } else if self.matchToken(While) {
@@ -199,121 +210,86 @@ impl Parser {
     }
 
 	#[allow(non_snake_case)]
-    fn forStatement(&mut self) -> Result<Stmt, String> {
-        // for v
-        //       ( SMTH ; SMTH ; SMTH )
-        self.consume(LeftParen, "Expected '(' after 'for'.")?;
+	fn forStatement(&mut self) -> Result<Stmt, String> {
+	    let name = self.consume(Identifier, "Expected loop variable.")?;
 
-        // Consumes "SMTH ;"
-        let initializer;
-        if self.matchToken(Bang) {
-            initializer = None;
-        } else if self.matchToken(Var) {
-            let var_decl = self.varDeclaration()?;
-            initializer = Some(var_decl);
-        } else {
-            let expr = self.expressionStatement()?;
-            initializer = Some(expr);
-        }
+	    self.consume(In, "Expected 'in' after loop variable.")?;
 
-        // Consumes "SMTH? ;"
-        let condition;
-        if !self.check(Bang) {
-            let expr = self.expression()?;
-            condition = Some(expr);
-        } else {
-            condition = None;
-        }
-        self.consume(Bang, "Expected '[!]' after loop condition.")?;
+	    let iterable = self.expression()?;
 
-        let increment;
-        if !self.check(RightParen) {
-            let expr = self.expression()?;
-            increment = Some(expr);
-        } else {
-            increment = None;
-        }
-        self.consume(RightParen, "Expected ')' after for clauses.")?;
+	    self.consume(Colon, "Expected ':' after iterable.")?;
+	    self.consume(Newline, "Expected newline after ':'")?;
+	    self.consume(Indent, "Expected indented block")?;
 
-        let mut body = self.statement()?;
+	    let body = self.blockStatement()?;
 
-        if let Some(incr) = increment {
-            body = Stmt::Block {
-                statements: vec![
-                    Box::new(body),
-                    Box::new(Stmt::Expression { expression: incr }),
-                ],
-            };
-        }
-
-        let cond;
-        match condition {
-            None => {
-                cond = Expr::Literal {
-                    id: self.getId(),
-                    value: LiteralValue::True,
-                }
-            }
-            Some(c) => cond = c,
-        }
-        body = Stmt::WhileStmt {
-            condition: cond,
-            body: Box::new(body),
-        };
-
-        if let Some(init) = initializer {
-            body = Stmt::Block {
-                statements: vec![Box::new(init), Box::new(body)],
-            };
-        }
-
-        Ok(body)
-    }
+	    Ok(Stmt::ForStmt {
+	        variable: name,
+	        iterable,
+	        body: Box::new(body),
+	    })
+	}
 
 	#[allow(non_snake_case)]
-    fn whileStatement(&mut self) -> Result<Stmt, String> {
-        self.consume(LeftParen, "Expected '(' after 'while'")?;
-        let condition = self.expression()?;
-        self.consume(RightParen, "Expected ')' after condition.")?;
-        let body = self.statement()?;
+	fn whileStatement(&mut self) -> Result<Stmt, String> {
+	    let condition = self.expression()?;
 
-        Ok(Stmt::WhileStmt {
-            condition,
-            body: Box::new(body),
-        })
-    }
+	    self.consume(Colon, "Expected ':' after while condition")?;
+	    self.consume(Newline, "Expected newline after ':'")?;
+	    self.consume(Indent, "Expected indented block")?;
+
+	    let body = self.blockStatement()?;
+
+	    Ok(Stmt::WhileStmt {
+	        condition,
+	        body: Box::new(body),
+	    })
+	}
 
 	#[allow(non_snake_case)]
-    fn ifStatement(&mut self) -> Result<Stmt, String> {
-        self.consume(LeftParen, "Expected '(' after 'if'")?;
-        let predicate = self.expression()?;
-        self.consume(RightParen, "Expected ')' after if-predicate")?;
+	fn ifStatement(&mut self) -> Result<Stmt, String> {
+	    let predicate = self.expression()?;
 
-        let then = Box::new(self.statement()?);
-        let els = if self.matchToken(Else) {
-            let stm = self.statement()?;
-            Some(Box::new(stm))
-        } else {
-            None
-        };
+	    self.consume(Colon, "Expected ':' after if condition")?;
+	    self.consume(Newline, "Expected newline after ':'")?;
+	    self.consume(Indent, "Expected indented block")?;
 
-        Ok(Stmt::IfStmt {
-            predicate,
-            then,
-            els,
-        })
-    }
+	    let then = Box::new(self.blockStatement()?);
+
+	    let els = if self.matchToken(Else) {
+	        self.consume(Colon, "Expected ':' after else")?;
+	        self.consume(Newline, "Expected newline after ':'")?;
+	        self.consume(Indent, "Expected indented block")?;
+
+	        Some(Box::new(self.blockStatement()?))
+	    } else {
+	        None
+	    };
+
+	    Ok(Stmt::IfStmt {
+	        predicate,
+	        then,
+	        els,
+	    })
+	}
 
 	#[allow(non_snake_case)]
     fn blockStatement(&mut self) -> Result<Stmt, String> {
         let mut statements = vec![];
 
-        while !self.check(RightBrace) && !self.isAtEnd() {
-            let decl = self.declaration()?;
-            statements.push(Box::new(decl));
-        }
+        while !self.check(Dedent) && !self.isAtEnd() {
 
-        self.consume(RightBrace, "Expected '}' after a block")?;
+		    while self.matchToken(Newline) {}
+
+		    if self.check(Dedent) {
+		        break;
+		    }
+		
+		    let decl = self.declaration()?;
+		    statements.push(Box::new(decl));
+		}
+
+        self.consume(Dedent, "Expected end of block");
         Ok(Stmt::Block { statements })
     }
 
@@ -362,9 +338,17 @@ impl Parser {
         )?;
 
         self.consume(
-            LeftBrace,
-            "Expected '{' after anonymous function declaration",
-        )?;
+		    Colon,
+		    "Expected ':' after anonymous function declaration",
+		)?;
+		self.consume(
+		    Newline,
+		    "Expected newline after ':'",
+		)?;
+		self.consume(
+		    Indent,
+		    "Expected indented block",
+		)?;
 
         let body = match self.blockStatement()? {
             Stmt::Block { statements } => statements,

@@ -1,9 +1,7 @@
 // --- Test
-class DevonshireCream {
-  serveOn() {
+class DevonshireCream:
+  serveOn():
     return "Scones"!
-  }
-}
 
 print DevonshireCream!
 

@@ -30,6 +30,11 @@ pub enum Stmt {
         condition: Expr,
         body: Box<Stmt>,
     },
+	ForStmt {
+	    variable: Token,
+	    iterable: Expr,
+	    body: Box<Stmt>,
+	},
     Function {
         name: Token,
         params: Vec<Token>,
@@ -72,6 +77,11 @@ impl Stmt {
                 condition: _,
                 body: _,
             } => todo!(),
+			ForStmt {
+			    variable: _,
+			    iterable: _,
+			    body: _,
+			} => todo!(),
             Function {
                 name: _,
                 params: _,

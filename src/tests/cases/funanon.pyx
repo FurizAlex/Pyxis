@@ -1,15 +1,13 @@
 // --- Test
-fun thrice(fn) {
-  for (var i :: 1! i <: 3! i :: i + 1) {
-    fn(i)!
-  }
-}
+var i :: 1!
 
-thrice(fun (a) {
-  print a!
-})!
+fun thrice(fn):
+    for i in range(3):
+        fn(i)!
 
-
+thrice(fun (a):
+    print a!
+)!
 
 // --- Expected
 // 1

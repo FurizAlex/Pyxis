@@ -1,9 +1,8 @@
 // --- Test
-class Adder {
-    add(a, b) {
+class Adder:
+    add(a, b):
         return a + b + 1!
-    }
-}
+
 var a :: Adder()!
 print a.add(2, 2)!
 
