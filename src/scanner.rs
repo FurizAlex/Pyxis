@@ -189,6 +189,14 @@ impl Scanner {
                     self.add_token(Slash);
                 }
             },
+			'#' => {
+				loop {
+					if self.peek() == '\n' || self.isAtEnd() {
+						break;
+					}
+					self.advance();
+				}
+			}
             '|' => {
                 if self.char_match('>') {
                     self.add_token(Pipe);

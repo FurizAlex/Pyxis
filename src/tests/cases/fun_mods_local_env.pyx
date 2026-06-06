@@ -8,6 +8,5 @@ mod()!
 
 print a!
 
-
 // --- Expected
 // 3
