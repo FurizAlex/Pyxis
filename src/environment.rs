@@ -3,11 +3,23 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+pub struct SlotData {
+	pub value: LiteralValue,
+	pub hotlink_listeners: Vec<Rc<RefCell<SlotData>>>,
+}
+
+type Slot = Rc<RefCell<SlotData>>;
+
+fn newSlot(value: LiteralValue) -> Slot {
+	Rc::new(RefCell::new(SlotData { value, hotlink_listeners: vec![] }))
+}
+
 #[derive(Clone)]
 pub struct Environment {
-    pub values: Rc<RefCell<HashMap<String, LiteralValue>>>,
+    pub values: Rc<RefCell<HashMap<String, Slot>>>,
     locals: Rc<RefCell<HashMap<usize, usize>>>,
     pub enclosing: Option<Box<Environment>>,
+	pub is_production: bool,
 }
 
 #[allow(non_snake_case)]
@@ -21,7 +33,7 @@ fn clockImpl(_args: &Vec<LiteralValue>) -> LiteralValue {
 }
 
 #[allow(non_snake_case)]
-fn getGlobals() -> Rc<RefCell<HashMap<String, LiteralValue>>> {
+fn getGlobals() -> Rc<RefCell<HashMap<String, Slot>>> {
     let mut env = HashMap::new();
     let fun_impl = NativeFunctionImpl {
         name: "clock".to_string(),
@@ -29,17 +41,18 @@ fn getGlobals() -> Rc<RefCell<HashMap<String, LiteralValue>>> {
         fun: Rc::new(clockImpl),
     };
     let callable_impl = CallableImpl::NativeFunction(fun_impl);
-    env.insert("clock".to_string(), LiteralValue::Callable(callable_impl));
+    env.insert("clock".to_string(), newSlot(LiteralValue::Callable(callable_impl)));
 
     Rc::new(RefCell::new(env))
 }
 
 impl Environment {
-    pub fn new(locals: HashMap<usize, usize>) -> Self {
+    pub fn new(locals: HashMap<usize, usize>, is_production: bool) -> Self {
         Self {
             values: getGlobals(),
             locals: Rc::new(RefCell::new(locals)),
             enclosing: None,
+			is_production,
         }
     }
 
@@ -55,12 +68,43 @@ impl Environment {
             values: Rc::new(RefCell::new(HashMap::new())),
             locals: self.locals.clone(),
             enclosing: Some(Box::new(self.clone())),
+			is_production: self.is_production,
         }
     }
 
     pub fn define(&self, name: String, value: LiteralValue) {
-        self.values.borrow_mut().insert(name, value);
+        self.values.borrow_mut().insert(name, newSlot(value));
     }
+
+	pub fn defineAliased(&self, name: String, existing_slot: Slot) {
+		self.values.borrow_mut().insert(name, existing_slot);
+	}
+
+	pub fn registerHotlink(source_slot: &Slot, listener_slot: Slot) {
+		source_slot.borrow_mut().hotlink_listeners.push(listener_slot);
+	}
+
+	pub fn getSlot(&self, name: &str, distance: Option<usize>) -> Option<Slot> {
+		if let None = distance {
+			match &self.enclosing {
+				None => self.values.borrow().get(name).cloned(),
+				Some(env) => env.getSlot(name, distance),
+			}
+		} else {
+			let distance = distance.unwrap();
+			if distance == 0 {
+				self.values.borrow().get(name).cloned()
+			} else {
+				match &self.enclosing {
+					None => panic!("Tried to resolve a variable that was defined deeper than the current environment depth"),
+					Some(env) => {
+						assert!(distance > 0);
+						env.getSlot(name, Some(distance - 1))
+					}
+				}
+			}
+		}
+	}
 
     pub fn get(&self, name: &str, expr_id: usize) -> Option<LiteralValue> {
         let distance = self.locals.borrow().get(&expr_id).cloned();
@@ -85,25 +129,7 @@ impl Environment {
 
 	#[allow(non_snake_case)]
     fn getInternal(&self, name: &str, distance: Option<usize>) -> Option<LiteralValue> {
-        if let None = distance {
-            match &self.enclosing {
-                None => self.values.borrow().get(name).cloned(),
-                Some(env) => env.getInternal(name, distance),
-            }
-        } else {
-            let distance = distance.unwrap();
-            if distance == 0 {
-                self.values.borrow().get(name).cloned()
-            } else {
-                match &self.enclosing {
-                    None => panic!("Tried to resolve a variable that was defined deeper than the current environment depth"),
-                    Some(env) => {
-                        assert!(distance > 0);
-                        env.getInternal(name, Some(distance - 1))
-                    }
-                }
-            }
-        }
+        self.getSlot(name, distance).map(|slot| slot.borrow().value.clone())
     }
 
 	#[allow(non_snake_case)]
@@ -119,28 +145,26 @@ impl Environment {
 
 	#[allow(non_snake_case)]
     fn assignInternal(&self, name: &str, value: LiteralValue, distance: Option<usize>) -> bool {
-        if let None = distance {
-            match &self.enclosing {
-                Some(env) => env.assignInternal(name, value, distance),
-                None => match self.values.borrow_mut().insert(name.to_string(), value) {
-                    Some(_) => true,
-                    None => false,
-                },
-            }
-        } else {
-            let distance = distance.unwrap();
-            if distance == 0 {
-                self.values.borrow_mut().insert(name.to_string(), value);
-                true
-            } else {
-                match &self.enclosing {
-                    None => panic!("Tried to define a variable in a too deep level"),
-                    Some(env) => env.assignInternal(name, value, Some(distance - 1)),
-                };
-                true
-            }
-        }
+        match self.getSlot(name, distance) {
+			Some(slot) => {
+				Self::writeSlot(&slot, value);
+				true
+			}
+			None => false,
+		}
     }
+
+	#[allow(non_snake_case)]
+	fn writeSlot(slot: &Slot, value: LiteralValue) {
+		let listeners = {
+			let mut data = slot.borrow_mut();
+			data.value = value.clone();
+			data.hotlink_listeners.clone()
+		};
+		for listener in listeners {
+			Self::writeSlot(&listener, value.clone());
+		}
+	}
 
     #[allow(dead_code)]
     pub fn dump(&self, indent: usize) -> String {
@@ -149,7 +173,7 @@ impl Environment {
             for _ in 0..indent {
                 result.push_str(" ");
             }
-            result.push_str(&format!("{}: {:?}\n", key, val));
+            result.push_str(&format!("{}: {:?}\n", key, val.borrow().value));
         }
         if let Some(env) = &self.enclosing {
             result.push_str(&env.dump(indent + 2));

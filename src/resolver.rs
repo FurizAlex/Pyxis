@@ -14,6 +14,7 @@ enum FunctionType {
 pub struct Resolver {
     scopes: Vec<HashMap<String, bool>>,
     current_function: FunctionType,
+	loop_depth: usize,
     locals: HashMap<usize, usize>,
 }
 
@@ -22,6 +23,7 @@ impl Resolver {
         Self {
             scopes: vec![],
             current_function: FunctionType::None,
+			loop_depth: 0,
             locals: HashMap::new(),
         }
     }
@@ -34,6 +36,21 @@ impl Resolver {
                 name: _,
                 initializer: _,
             } => self.resolveVar(stmt)?,
+            Stmt::WrafsVar { id, name, source } => {
+            	self.resolveLocal(source, *id)?;
+            	self.declare(name)?;
+            	self.define(name);
+            }
+			Stmt::HotlinkVar { id, name, source } => {
+				self.resolveLocal(source, *id)?;
+				self.declare(name)?;
+				self.define(name);
+			}
+			Stmt::GhostVar { name, initializer } => {
+				self.declare(name)?;
+				self.resolveExpr(initializer)?;
+				self.define(name);
+			}
             Stmt::Class {
                 name,
                 methods,
@@ -84,6 +101,11 @@ impl Resolver {
                 params: _,
                 body: _,
             } => self.resolveFunction(stmt, FunctionType::Function)?,
+			Stmt::EntryFunction {
+				name: _,
+				params: _,
+				body: _,
+			} => self.resolveEntryFunction(stmt)?,
             Stmt::CmdFunction { name: _, cmd: _ } => self.resolveVar(stmt)?,
             Stmt::Expression { expression } => self.resolveExpr(expression)?,
             Stmt::IfStmt {
@@ -103,7 +125,12 @@ impl Resolver {
             }
             Stmt::WhileStmt { condition, body } => {
                 self.resolveExpr(condition)?;
-                self.resolveInternal(body.as_ref())?;
+				self.loop_depth += 1;
+                let result = self.resolveInternal(body.as_ref());
+				self.loop_depth -= 1;
+				if let Err(e) = result {
+					return Err(e);
+				}
             }
 			Stmt::ForStmt {
 				variable,
@@ -114,8 +141,23 @@ impl Resolver {
 				self.declare(variable);
 				self.define(variable);
 				self.resolveExpr(iterable)?;
-				self.resolveInternal(body.as_ref())?;
+				self.loop_depth += 1;
+				let result = self.resolveInternal(body.as_ref());
+				self.loop_depth -= 1;
 				self.endScope();
+				if let Err(e) = result {
+					return Err(e);
+				}
+			}
+			Stmt::BreakStmt { keyword: _ } => {
+				if self.loop_depth == 0 {
+					return Err("'break' is not allowed outside of a loop".to_string());
+				}
+			}
+			Stmt::ContinueStmt { keyword: _ } => {
+				if self.loop_depth == 0 {
+					return Err("'continue' is not allowed outside of a loop".to_string());
+				}
 			}
         }
         Ok(())
@@ -180,6 +222,22 @@ impl Resolver {
             panic!("Wrong type in resolve function");
         }
     }
+
+	#[allow(non_snake_case)]
+	fn resolveEntryFunction(&mut self, stmt: &Stmt) -> Result<(), String> {
+		if let Stmt::EntryFunction { name , params, body} = stmt {
+			self.declare(name)?;
+			self.define(name);
+
+			self.resolveFunctionHelper(
+				params,
+				&body.iter().map(|b| b.as_ref()).collect(),
+				FunctionType::Function,
+			)
+		} else {
+			panic!("Wrong type in resolve entry function");
+		}
+	}
 
 	#[allow(non_snake_case)]
     fn resolveIfStatement(&mut self, stmt: &Stmt) -> Result<(), String> {
@@ -351,6 +409,32 @@ impl Resolver {
                 &body.iter().map(|b| b.as_ref()).collect(),
                 FunctionType::Function,
             ),
+			Expr::ListLiteral { id: _, items } => {
+				for item in items {
+					self.resolveExpr(item)?;
+				}
+				Ok(())
+			}
+			Expr::Index {
+				id: _,
+				object,
+				bracket: _,
+				index,
+			} => {
+				self.resolveExpr(object)?;
+				self.resolveExpr(index)
+			}
+			Expr::IndexSet {
+				id: _,
+				object,
+				bracket: _,
+				index,
+				value,
+			} => {
+				self.resolveExpr(value)?;
+				self.resolveExpr(object)?;
+				self.resolveExpr(index)
+			}
         }
     }
 

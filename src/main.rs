@@ -10,10 +10,16 @@ use crate::interpreter::*;
 use crate::parser::*;
 use crate::resolver::*;
 use crate::scanner::*;
+use crate::expr::{LiteralValue, CallableImpl};
 use std::env;
 use std::fs;
 use std::io::{self, BufRead, Write};
 use std::process::exit;
+
+#[allow(non_snake_case)]
+fn isProductionMode() -> bool {
+	env::var("PYXIS_ENV").map(|v| v.eq_ignore_ascii_case("production")).unwrap_or(false)
+}
 
 #[allow(non_snake_case)]
 pub fn runFile(path: &str) -> Result<(), String> {
@@ -26,7 +32,7 @@ pub fn runFile(path: &str) -> Result<(), String> {
 
 #[allow(non_snake_case)]
 pub fn runString(contents: &str) -> Result<(), String> {
-    let mut interpreter = Interpreter::new();
+    let mut interpreter = Interpreter::new(isProductionMode());
 
     run(&mut interpreter, contents)
 }
@@ -45,12 +51,19 @@ fn run(interpreter: &mut Interpreter, contents: &str) -> Result<(), String> {
     interpreter.resolve(locals);
 
     interpreter.interpret(stmts.iter().collect())?;
+
+	if let Some(LiteralValue::Callable(CallableImpl::PyxisFunction(main_fn))) =
+		interpreter.specials.get("__entry__").cloned()
+	{
+		crate::expr::runPyxisFunction(main_fn, &vec![], interpreter.environment.clone())?;
+	}
+
     return Ok(());
 }
 
 #[allow(non_snake_case)]
 fn runPrompt() -> Result<(), String> {
-    let mut interpreter = Interpreter::new();
+    let mut interpreter = Interpreter::new(isProductionMode());
     loop {
         print!("> ");
         match io::stdout().flush() {

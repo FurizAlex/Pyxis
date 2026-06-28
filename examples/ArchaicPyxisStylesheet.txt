@@ -1,20 +1,21 @@
 VARIABLE DECLARATION
 
-var a :: 0! <-- with the exclamation mark at end
+var a :: 0! <-- with the exclamation mark at end (temporarily, will remove it and just make it without anything later)
 
 -----------------------------------------------------
 
 FUNCTION DECLARATION
 
-func a():
+func a(): <- custom functions
 
-defi main():
+defi main(): <- prebuilt functions
 
 -----------------------------------------------------
 
 IF / ELSE STATEMENT
 
 if (x > y):
+unif (x > y): <- elif replacement
 else:
 
 -----------------------------------------------------
@@ -68,3 +69,31 @@ for x in 10:
 while x < y:
 
 -----------------------------------------------------
+
+SPECIAL KEYWORDS
+
+@wrafs  → @wrafs marks a variable as a live reference to an object, ensuring that any changes made through it are automatically applied to the original object.
+It makes working with complex game objects, UI elements, entities, and external systems easier without needing manual copying, syncing, or memory management.
+
+@export → @export makes a function, variable, or class visible to other files. Allows the symbol to be accessed through $reference imports. Encourages modular code while keeping internals private by default.
+
+@ghost → @ghost marks a variable as editor-only or debug-only. It exists during development but is stripped in production builds. Perfect for dev tools, visualizations, and debug tracking
+
+@hotlink → @hotlink creates a reactive link to another variable or expression. Updates to the linked variable will automatically react to source. Ideal for UI, live property updates, or animation sync
+
+@bind → @bind binds a function to an engine or user-defined event. Triggers the function automatically when the event fires. Streamlines input handling, lifecycle hooks, and scripting logic
+
+@tracker → @tracker exposes a variable to debugging tools or the visual editor. Lets developers watch or modify values at runtime. Great for tuning game state, AI, timers, and diagnostics.
+
+—-------------------------------------------------------------------------------------
+
+KEY DIFFERENCES BETWEEN WRAFS & HOTLINK:
+
+Say when you call Wrafs on a & b is called from a, whatever b’s value gets affected then a’s value also gets affected.
+
+Hotlink is just whenever the value of a linked variable is changed then the original gets changed as well but the original can’t change the linked variable.
+
+Remember variable declaration is generally just a copy of the original variable i.e a = b. #then a just copies whatever b’s value has.
+
+---------------------------------------------------------------------------------------
+

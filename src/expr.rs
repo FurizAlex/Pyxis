@@ -50,6 +50,9 @@ pub enum LiteralValue {
         class: Box<LiteralValue>,
         fields: Rc<RefCell<Vec<(String, LiteralValue)>>>,
     },
+	List {
+		items: Rc<RefCell<Vec<LiteralValue>>>,
+	},
 }
 use LiteralValue::*;
 
@@ -83,6 +86,9 @@ impl PartialEq for LiteralValue {
             (True, True) => true,
             (False, False) => true,
             (Nil, Nil) => true,
+			(List { items: a }, List { items: b }) => {
+				*a.borrow() == *b.borrow()
+			}
             _ => false,
         }
     }
@@ -146,6 +152,10 @@ impl LiteralValue {
             LiteralValue::PyxisInstance { class, fields: _ } => {
                 format!("Instance of '{}'", class_name!(class))
             }
+			LiteralValue::List { items } => {
+				let inner: Vec<String> = items.borrow().iter().map(|v| v.to_string()).collect();
+				format!("[{}]", inner.join(", "))
+			}
         }
     }
 
@@ -164,6 +174,7 @@ impl LiteralValue {
                 superclass: _,
             } => "Class",
             LiteralValue::PyxisInstance { class, fields: _ } => &class_name!(class),
+			LiteralValue::List { .. } => "List",
         }
     }
 
@@ -309,6 +320,23 @@ pub enum Expr {
         id: usize,
         name: Token,
     },
+	ListLiteral {
+		id: usize,
+		items: Vec<Expr>,
+	},
+	Index {
+		id: usize,
+		object: Box<Expr>,
+		bracket: Token,
+		index: Box<Expr>,
+	},
+	IndexSet {
+		id: usize,
+		object: Box<Expr>,
+		bracket: Token,
+		index: Box<Expr>,
+		value: Box<Expr>,
+	},
 }
 
 impl std::fmt::Debug for Expr {
@@ -357,10 +385,10 @@ impl Expr {
 
             Expr::Call {
                 id,
-                callee: _,
+                callee,
                 paren: _,
-                arguments: _,
-            } => *id,
+                arguments,
+			} => *id,
             Expr::Get {
                 id,
                 object: _,
@@ -392,6 +420,9 @@ impl Expr {
                 right: _,
             } => *id,
             Expr::Variable { id, name: _ } => *id,
+			Expr::ListLiteral { id, items: _ } => *id,
+			Expr::Index { id, object: _, bracket: _, index: _ } => *id,
+			Expr::IndexSet { id, object: _, bracket: _, index: _, value: _ } => *id,
         }
     }
 }
@@ -471,6 +502,21 @@ impl Expr {
                 format!("({} {})", operator_str, right_str)
             }
             Expr::Variable { id: _, name } => format!("(var {})", name.lexeme),
+			Expr::ListLiteral { id: _, items } => {
+				let inner: Vec<String> = items.iter().map(|e| e.to_string()).collect();
+				format!("[{}]", inner.join(". "))
+			}
+			Expr::Index { id: _, object, bracket: _, index } => {
+				format!("(index {} {})", object.to_string(), index.to_string())
+			}
+			Expr::IndexSet { id: _, object, bracket: _, index, value } => {
+				format!(
+					"(index-set {} {} {})",
+					object.to_string(),
+					index.to_string(),
+					value.to_string()
+				)
+			}
         }
     }
 
@@ -522,8 +568,6 @@ impl Expr {
                 paren: _,
                 arguments,
             } => {
-                // Look up function definition in environment
-                // let callable_distance = locals.borrow().get(&self.getId());
                 let callable: LiteralValue = (*callee).evaluate(environment.clone())?;
                 let callable_clone = callable.clone();
                 match callable {
@@ -561,16 +605,12 @@ impl Expr {
                             // init_method.parent_env = new_env.clone();
                             let mut init_method = init_method.clone();
                             init_method.parent_env = init_method.parent_env.enclose();
-                            init_method
-                                .parent_env
-                                .define("this".to_string(), instance.clone());
+                            init_method.parent_env.define("this".to_string(), instance.clone());
 
-                            if let Err(msg) = runPyxisFunction(init_method, arguments, environment)
-                            {
+                            if let Err(msg) = runPyxisFunction(init_method, arguments, environment) {
                                 return Err(msg);
                             }
                         }
-
                         Ok(instance)
                     }
                     other => Err(format!("{} is not callable", other.to_type())),
@@ -603,6 +643,88 @@ impl Expr {
                 }
                 ttype => Err(format!("Invalid token in logical expression: {}", ttype)),
             },
+			Expr::ListLiteral { id: _, items } => {
+				let mut evaluated = vec![];
+				for item in items {
+					evaluated.push(item.evaluate(environment.clone())?);
+				}
+				Ok(LiteralValue::List { items: Rc::new(RefCell::new(evaluated)),
+				})
+			}
+			Expr::Index { id: _, object, bracket, index } => {
+				let object_value = object.evaluate(environment.clone())?;
+				let index_value = object.evaluate(environment.clone())?;
+
+				let index = match index_value {
+					LiteralValue::Number(n) => n as i64,
+					other => {
+						return Err(format!(
+							"Line {}: array index must be a number, got {}",
+							bracket.line_number,
+							other.to_type()
+						));
+					}
+				};
+				if let LiteralValue::List { items } = object_value {
+					let items_ref = items.borrow();
+					if index < 0 || index as usize >= items_ref.len() {
+						return Err(format!(
+							"Line {}: index {} out of bounds for array on length {}",
+							bracket.line_number,
+							index,
+							items_ref.len()
+						));
+					}
+					Ok(items_ref[index as usize].clone())
+				} else {
+					Err(format!(
+						"Line {}: cannot index into type {}",
+						bracket.line_number,
+						object_value.to_type()
+					))
+				}
+			}
+			Expr::IndexSet {
+				id: _,
+				object,
+				bracket,
+				index,
+				value,
+			} => {
+				let object_value = object.evaluate(environment.clone())?;
+				let index_value = index.evaluate(environment.clone())?;
+				let new_value = value.evaluate(environment.clone())?;
+
+				let index = match index_value {
+					LiteralValue::Number(n) => n as i64,
+					other => {
+						return Err(format!(
+							"Line {}: list index must be a number, got {}",
+							bracket.line_number,
+							other.to_type()
+						));
+					}
+				};
+				if let LiteralValue::List { items } = object_value {
+					let mut items_mut = items.borrow_mut();
+					if index < 0 || index as usize >= items_mut.len() {
+						return Err(format!(
+							"Line {}: index {} out of bounds for array length {}",
+							bracket.line_number,
+							index,
+							items_mut.len()
+						));
+					}
+					items_mut[index as usize] = new_value.clone();
+					Ok(new_value)
+				} else {
+					Err(format!(
+						"Line {}: cannot index into type {}",
+						bracket.line_number,
+						object_value.to_type()
+					))
+				}
+			}
             Expr::Get {
                 id: _,
                 object,
@@ -756,6 +878,7 @@ impl Expr {
                     (Number(x), TokenType::Minus, Number(y)) => Ok(Number(x - y)),
                     (Number(x), TokenType::Star, Number(y)) => Ok(Number(x * y)),
                     (Number(x), TokenType::Slash, Number(y)) => Ok(Number(x / y)),
+					(Number(x), TokenType::Percent, Number(y)) => Ok(Number(x % y)),
                     (Number(x), TokenType::Greater, Number(y)) => {
                         Ok(LiteralValue::from_bool(x > y))
                     }
@@ -868,6 +991,47 @@ pub fn findMethod(name: &str, class: LiteralValue) -> Option<PyxisFunctionImpl> 
     } else {
         panic!("Cannot find method on non-class");
     }
+}
+
+#[allow(non_snake_case)]
+fn exprReferencesGhost(expr: &Expr, ghost_names: &std::collections::HashSet<String>) -> bool {
+	match expr {
+		Expr::Variable { id: _, name } => ghost_names.contains(&name.lexeme),
+		Expr::Assign { id: _, name, value } => {
+			ghost_names.contains(&name.lexeme) || exprReferencesGhost(value, ghost_names)
+		}
+		Expr::Binary { left, right, .. } | Expr::Logical { left, right, .. } => {
+			exprReferencesGhost(left, ghost_names) || exprReferencesGhost(right, ghost_names)
+		}
+		Expr::Call { callee, arguments, .. } => {
+			exprReferencesGhost(callee, ghost_names) || arguments.iter().any(|a| exprReferencesGhost(a, ghost_names))
+		}
+		Expr::Get { object, .. } => exprReferencesGhost(object, ghost_names),
+		Expr::Set { object, value, .. } => {
+			exprReferencesGhost(object, ghost_names) || exprReferencesGhost(value, ghost_names)
+		}
+		Expr::Grouping { expression, .. } => exprReferencesGhost(expression, ghost_names),
+		Expr::Unary { right, .. } => exprReferencesGhost(right, ghost_names),
+		Expr::Literal { .. } | Expr::This { .. } | Expr::Super { .. } => false,
+		Expr::AnonFunction { .. } => false,
+		Expr::ListLiteral { items, .. } => {items.iter().any(|i| exprReferencesGhost(i, ghost_names))}
+		Expr::Index { object, index, .. } => {exprReferencesGhost(object, ghost_names) || exprReferencesGhost(index, ghost_names)}
+		Expr::IndexSet { object, index, value, .. } => {exprReferencesGhost(object, ghost_names) || exprReferencesGhost(index, ghost_names) || exprReferencesGhost(value, ghost_names)}
+	}
+}
+
+#[allow(non_snake_case)]
+pub fn stmtReferencesGhost(stmt: &Stmt, ghost_names: &std::collections::HashSet<String>) -> bool {
+	match stmt {
+		Stmt::Expression { expression } => exprReferencesGhost(expression, ghost_names),
+		Stmt::Print { expression } => exprReferencesGhost(expression, ghost_names),
+		Stmt::Var { initializer, .. } => exprReferencesGhost(initializer, ghost_names),
+		Stmt::ReturnStmt { value: Some(v), .. } => exprReferencesGhost(v, ghost_names),
+		Stmt::IfStmt { predicate, .. } => exprReferencesGhost(predicate, ghost_names),
+		Stmt::WhileStmt { condition, .. } => exprReferencesGhost(condition, ghost_names),
+		Stmt::ForStmt { iterable, .. } => exprReferencesGhost(iterable, ghost_names),
+		_ => false,
+	}
 }
 
 #[cfg(test)]

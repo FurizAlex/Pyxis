@@ -35,5 +35,3 @@ impl Fn<(Vec<LiteralValue>,)> for FunctionVal {
     }
 }
 
-
-

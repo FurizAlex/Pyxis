@@ -13,6 +13,20 @@ pub enum Stmt {
         name: Token,
         initializer: Expr,
     },
+	WrafsVar {
+		id: usize,
+		name: Token,
+		source: Token,
+	},
+	HotlinkVar {
+		id: usize,
+		name: Token,
+		source: Token,
+	},
+	GhostVar {
+		name: Token,
+		initializer: Expr,
+	},
     Block {
         statements: Vec<Box<Stmt>>,
     },
@@ -21,6 +35,12 @@ pub enum Stmt {
         methods: Vec<Box<Stmt>>,
         superclass: Option<Expr>,
     },
+	BreakStmt {
+		keyword: Token
+	},
+	ContinueStmt {
+		keyword: Token
+	},
     IfStmt {
         predicate: Expr,
         then: Box<Stmt>,
@@ -48,6 +68,11 @@ pub enum Stmt {
         keyword: Token,
         value: Option<Expr>,
     },
+	EntryFunction {
+		name: Token,
+		params: Vec<Token>,
+		body: Vec<Box<Stmt>>,
+	},
 }
 
 impl Stmt {

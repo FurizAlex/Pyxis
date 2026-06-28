@@ -63,8 +63,12 @@ impl Parser {
             self.varDeclaration()
         } else if self.matchToken(Fun) {
             self.function(FunctionKind::Function)
+		} else if self.matchToken(Defi) {
+			self.entryFunction()
         } else if self.matchToken(Class) {
             self.classDeclaration()
+        } else if self.matchToken(At) {
+        	self.decorator()
         } else {
             self.statement()
         }
@@ -74,6 +78,9 @@ impl Parser {
 	fn classDeclaration(&mut self) -> Result<Stmt, String> {
 	    let name = self.consume(Identifier, "Expected name after 'class' keyword.")?;
 	
+		if self.matchToken(LeftParen) {
+			self.consume(RightParen, "Expected ')' after class name (no parameters are supported here yet)")?;
+		}
 	    let superclass = if self.matchToken(TokenType::Less) {
 	        self.consume(Identifier, "Expected superclass name after '<'.")?;
 		
@@ -92,6 +99,7 @@ impl Parser {
 	
 	    if self.matchToken(Indent) {
 	        while !self.check(Dedent) && !self.isAtEnd() {
+				self.consume(Fun, "Expected ' func' before method name")?;
 	            let method = self.function(FunctionKind::Method)?;
 	            methods.push(Box::new(method));
 	        }
@@ -104,6 +112,39 @@ impl Parser {
 	        methods,
 	        superclass,
 	    })
+	}
+	
+	#[allow(non_snake_case)]
+	fn wrafsDeclaration(&mut self) -> Result<Stmt, String> {
+		self.consume(Var, "Expected 'var' after '@wrafs'")?;
+		let name = self.consume(Identifier, "Expected variable name after 'var'")?;
+	
+		self.consume(Equal, "Expected '::' after variable name")?;
+		let source = self.consume(
+			Identifier,
+			"Expected an existing variable name after '::' in a @wrafs declaration (expressions are not allowed here <-> @wrafs can only link with an another variable directly)"
+		)?;
+		self.consume(Bang, "Expected '[!]' after @wrafs declaration")?;
+		Ok(Stmt::WrafsVar {id: self.getId(), name, source})
+	}
+
+	#[allow(non_snake_case)]
+	fn hotlinkDeclaration(&mut self) -> Result<Stmt, String> {
+		self.consume(Var, "Expected 'var' after '@hotlink'")?;
+		let name = self.consume(Identifier, "Expected variable named after var")?;
+		self.consume(Equal, "Expected '::' after variable name")?;
+		let source = self.consume(Identifier, "Expected an existing variable name after '::' in a @hotlink declaration (expressions are not allowed here -- @hotlink can only link to another variable directly")?;
+		self.consume(Bang, "Expected '[!]' after @hotlink declaration")?;
+		Ok(Stmt::HotlinkVar { id: self.getId(), name, source, })
+	}
+
+	#[allow(non_snake_case)]
+	fn ghostDeclaration(&mut self) -> Result<Stmt, String> {
+		self.consume(Var, "Expected 'var' after @ghost")?;
+		match self.varDeclaration()? {
+			Stmt::Var { name, initializer } => Ok(Stmt::GhostVar { name, initializer }),
+			_ => panic!("varDeclaration() returned something other than Stmt::Var"),
+		}
 	}
 
     fn function(&mut self, kind: FunctionKind) -> Result<Stmt, String> {
@@ -141,9 +182,9 @@ impl Parser {
         }
         self.consume(RightParen, "Expected ')' after parameters.")?;
 
-        self.consume(Colon, "Expected ':' before block");
-		self.consume(Newline, "Expected newline after ':'");
-		self.consume(Indent, "Expected indented block");
+        self.consume(Colon, "Expected ':' before block")?;
+		self.consume(Newline, "Expected newline after ':'")?;
+		self.consume(Indent, "Expected indented block")?;
         let body = match self.blockStatement()? {
             Stmt::Block { statements } => statements,
             _ => panic!("Block statement parsed something that was not a block"),
@@ -155,6 +196,45 @@ impl Parser {
             body,
         })
     }
+
+	#[allow(non_snake_case)]
+	fn entryFunction(&mut self) -> Result<Stmt, String> {
+		let name = self.consume(Identifier, "Expected name after 'defi' keyword")?;
+
+		self.consume(LeftParen, "Expected '(' after function name")?;
+
+		let mut parameters = vec![];
+		if !self.check(RightParen) {
+			loop {
+				if parameters.len() >= 255 {
+					let location = self.peek().line_number;
+					return Err(format!(
+						"Line {location}: Can't have more than 255 arguments"
+					));
+				}
+				let param = self.consume(Identifier, "Expected parameter name")?;
+
+				parameters.push(param);
+				if !self.matchToken(Comma) {
+					break;
+				}
+			}
+		}
+		self.consume(RightParen, "Expected ')' after paremeters.")?;
+		self.consume(Colon, "Expected ':' before block")?;
+		self.consume(Newline, "Expected newline after ':'")?;
+		self.consume(Indent, "Expected indented block")?;
+
+		let body = match self.blockStatement()? {
+			Stmt::Block { statements } => statements,
+			_ => panic!("Block statement parsed something that was not a block"),
+		};
+		Ok(Stmt::EntryFunction {
+			name,
+			params: parameters,
+			body,
+		})
+	}
 
 	#[allow(non_snake_case)]
     fn varDeclaration(&mut self) -> Result<Stmt, String> {
@@ -189,6 +269,10 @@ impl Parser {
             self.forStatement()
         } else if self.matchToken(Return) {
             self.returnStatement()
+		} else if self.matchToken(Break) {
+			self.breakStatement()
+		} else if self.matchToken(Continue) {
+			self.continueStatement()
         } else {
             self.expressionStatement()
         }
@@ -256,7 +340,9 @@ impl Parser {
 
 	    let then = Box::new(self.blockStatement()?);
 
-	    let els = if self.matchToken(Else) {
+	    let els = if self.matchToken(Unif) {
+			Some(Box::new(self.ifStatement()?))
+		} else if self.matchToken(Else) {
 	        self.consume(Colon, "Expected ':' after else")?;
 	        self.consume(Newline, "Expected newline after ':'")?;
 	        self.consume(Indent, "Expected indented block")?;
@@ -289,7 +375,7 @@ impl Parser {
 		    statements.push(Box::new(decl));
 		}
 
-        self.consume(Dedent, "Expected end of block");
+        self.consume(Dedent, "Expected end of block")?;
         Ok(Stmt::Block { statements })
     }
 
@@ -306,6 +392,41 @@ impl Parser {
         self.consume(Bang, "Expected '[!]' after expression.")?;
         Ok(Stmt::Expression { expression: expr })
     }
+
+	#[allow(non_snake_case)]
+	fn breakStatement(&mut self) -> Result<Stmt, String> {
+		let keyword = self.previous();
+		self.consume(Bang, "Expected '[!]' after 'break'")?;
+		Ok(Stmt::BreakStmt { keyword })
+	}
+
+	#[allow(non_snake_case)]
+	fn continueStatement(&mut self) -> Result<Stmt, String> {
+		let keyword = self.previous();
+		self.consume(Bang, "Expected '[!]' after 'continue'")?;
+		Ok(Stmt::ContinueStmt { keyword })
+	}
+	
+	#[allow(non_snake_case)]
+	fn decorator(&mut self) -> Result<Stmt, String> {
+		let tag = self.consume(Identifier, "Expected decorator name after @")?;
+		
+		match tag.lexeme.as_str() {
+			"wrafs" => self.wrafsDeclaration(),
+			"hotlink" => self.hotlinkDeclaration(),
+			"ghost" => self.ghostDeclaration(),
+			"export" => Err(format!(
+				"Line {}: 'export' is recognized but not implemented yet (requires a module system, which doesn't exist yet", tag.line_number
+			)),
+			"bind" => Err(format!(
+				"Line {}: '@bind' is recognized but not implemented yet (requires an event system, which doesn't exist yet", tag.line_number
+			)),
+			other => Err(format!(
+				"Line {}: '@{}'' is not a recognized decorator",
+				tag.line_number, other
+			)),
+		}
+	}
 
     fn expression(&mut self) -> Result<Expr, String> {
         self.assignment()
@@ -337,18 +458,9 @@ impl Parser {
             "Expected ')' after anonymous function parameters",
         )?;
 
-        self.consume(
-		    Colon,
-		    "Expected ':' after anonymous function declaration",
-		)?;
-		self.consume(
-		    Newline,
-		    "Expected newline after ':'",
-		)?;
-		self.consume(
-		    Indent,
-		    "Expected indented block",
-		)?;
+        self.consume(Colon, "Expected ':' after anonymous function declaration",)?;
+		self.consume(Newline, "Expected newline after ':'",)?;
+		self.consume(Indent, "Expected indented block",)?;
 
         let body = match self.blockStatement()? {
             Stmt::Block { statements } => statements,
@@ -386,6 +498,18 @@ impl Parser {
                     name,
                     value: Box::new(value),
                 }),
+				Expr::Index {
+					id: _,
+					object,
+					bracket,
+					index,
+				} => Ok(Expr::IndexSet {
+					id: self.getId(),
+					object,
+					bracket,
+					index,
+					value: Box::new(value),
+				}),
                 _ => Err("Invalid assignment target.".to_string()),
             }
         } else {
@@ -504,7 +628,7 @@ impl Parser {
 
     fn factor(&mut self) -> Result<Expr, String> {
         let mut expr = self.unary()?;
-        while self.matchTokens(&[Slash, Star]) {
+        while self.matchTokens(&[Slash, Star, Percent]) {
             let op = self.previous();
             let rhs = self.unary()?;
             expr = Binary {
@@ -545,7 +669,18 @@ impl Parser {
                     object: Box::new(expr),
                     name,
                 };
-            } else {
+            } else if self.matchToken(LeftBracket) {
+				let bracket = self.previous();
+				let index = self.expression()?;
+
+				self.consume(RightBracket, "Expected ']' after index")?;
+				expr = Expr::Index {
+					id: self.getId(),
+					object: Box::new(expr),
+					bracket,
+					index: Box::new(index),
+				};
+			} else {
                 break;
             }
         }
@@ -596,6 +731,23 @@ impl Parser {
                     expression: Box::from(expr),
                 };
             }
+			LeftBracket => {
+				self.advance();
+				let mut items = vec![];
+
+				if !self.check(RightBracket) {
+					loop {
+						let item = self.expression()?;
+						items.push(item);
+
+						if !self.matchToken(Comma) {
+							break;
+						}
+					}
+				}
+				self.consume(RightBracket, "Expected ']' after array")?;
+				result = Expr::ListLiteral { id: self.getId(), items, };
+			}
             False | True | Nil | Number | StringLit => {
                 self.advance();
                 result = Literal {

@@ -17,11 +17,14 @@ fn isAlphaNumeric(ch: char) -> bool {
 fn getKeywordsHashmap() -> HashMap<&'static str, TokenType> {
     HashMap::from([
         ("and", And),
+		("break", Break),
         ("class", Class),
+		("continue", Continue),
+		("defi", Defi),
         ("else", Else),
         ("false", False),
         ("for", For),
-        ("fun", Fun),
+        ("func", Fun),
         ("if", If),
 		("in", In),
         ("nil", Nil),
@@ -30,6 +33,7 @@ fn getKeywordsHashmap() -> HashMap<&'static str, TokenType> {
         ("return", Return),
         ("super", Super),
         ("this", This),
+		("unif", Unif),
         ("true", True),
         ("var", Var),
         ("while", While),
@@ -70,6 +74,16 @@ impl Scanner {
             }
         }
 
+		while self.indent_stack.len() > 1 {
+			self.indent_stack.pop();
+			self.tokens.push(Token {
+				token_type: Dedent,
+				lexeme: "".to_string(),
+				literal: None,
+				line_number: self.line,
+			});
+		}
+
         self.tokens.push(Token {
             token_type: Eof,
             lexeme: "".to_string(),
@@ -104,12 +118,16 @@ impl Scanner {
             ')' => self.add_token(RightParen),
             '{' => self.add_token(LeftBrace),
             '}' => self.add_token(RightBrace),
+			'[' => self.add_token(LeftBracket),
+			']' => self.add_token(RightBracket),
             ',' => self.add_token(Comma),
             '.' => self.add_token(Dot),
             '-' => self.add_token(Minus),
             '+' => self.add_token(Plus),
             ';' => self.add_token(Semicolon),
             '*' => self.add_token(Star),
+			'%' => self.add_token(Percent),
+			'@' => self.add_token(At),
         	'\n' => {
 			    self.line += 1;
 			    self.add_token(Newline);
@@ -147,14 +165,16 @@ impl Scanner {
                 self.add_token(token);
             }
             ':' => {
-                let token = if self.char_match(':') {
-                    Equal
-                } else if self.char_match('-') {
+                let token = if self.peek() == ':' && self.peekNext() == ':' {
+                    self.advance();
+					self.advance();
 					EqualEqual
+                } else if self.peek() == ':' {
+					self.advance();
+					Equal
 				} else {
                     Colon
                 };
-
                 self.add_token(token);
             }
             '<' => {
@@ -334,6 +354,8 @@ pub enum TokenType {
     RightParen,
     LeftBrace,
     RightBrace,
+	LeftBracket,
+	RightBracket,
     Comma,
     Dot,
     Minus,
@@ -345,6 +367,8 @@ pub enum TokenType {
 	Newline,
     Slash,
     Star,
+	Percent,
+	At,
 
     // One Or Two Chars
     Bang,
@@ -371,11 +395,15 @@ pub enum TokenType {
     Fun,
     For,
     If,
+	Unif,
+	Defi,
 	In,
     Nil,
     Or,
     Print,
     Return,
+	Break,
+	Continue,
     Super,
     This,
     True,
