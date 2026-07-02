@@ -50,6 +50,7 @@ pub enum LiteralValue {
         class: Box<LiteralValue>,
         fields: Rc<RefCell<Vec<(String, LiteralValue)>>>,
     },
+	VMClosure(Rc<crate::bytecode::Closure>),
 	List {
 		items: Rc<RefCell<Vec<LiteralValue>>>,
 	},
@@ -88,6 +89,9 @@ impl PartialEq for LiteralValue {
             (Nil, Nil) => true,
 			(List { items: a }, List { items: b }) => {
 				*a.borrow() == *b.borrow()
+			}
+			(VMClosure(a), VMClosure(b)) => {
+				Rc::ptr_eq(a, b)
 			}
             _ => false,
         }
@@ -149,6 +153,9 @@ impl LiteralValue {
                 methods: _,
                 superclass: _,
             } => format!("Class '{name}'"),
+			LiteralValue::VMClosure(c) => {
+				format!("{}/{}", c.function.name, c.function.arity)
+			}
             LiteralValue::PyxisInstance { class, fields: _ } => {
                 format!("Instance of '{}'", class_name!(class))
             }
@@ -174,6 +181,7 @@ impl LiteralValue {
                 superclass: _,
             } => "Class",
             LiteralValue::PyxisInstance { class, fields: _ } => &class_name!(class),
+			LiteralValue::VMClosure(_) => "Function",
 			LiteralValue::List { .. } => "List",
         }
     }
@@ -216,7 +224,7 @@ impl LiteralValue {
             True => False,
             False => True,
             Nil => True,
-            Callable(_) => panic!("Cannot use Callable as a falsy value"),
+            Callable(_) | VMClosure(_) => panic!("Cannot use Callable as a falsy value"),
             PyxisClass { .. } => panic!("Cannot use class as a falsy value"),
             _ => panic!("Not valid as a boolean value"),
         }
@@ -241,7 +249,7 @@ impl LiteralValue {
             True => True,
             False => False,
             Nil => False,
-            Callable(_) => panic!("Cannot use Callable as a truthy value"),
+            Callable(_) | VMClosure(_) => panic!("Cannot use Callable as a truthy value"),
             PyxisClass { .. } => panic!("Cannot use class as a truthy value"),
             _ => panic!("Not valid as a boolean value"),
         }
