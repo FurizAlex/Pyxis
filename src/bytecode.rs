@@ -41,6 +41,8 @@ pub enum OpCode {
 	Return,
 	Closure(usize),
 	CloseUpvalue(usize),
+	ForIterStart(usize, usize, usize, usize),
+	ForIterNext(usize, usize),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -64,7 +66,7 @@ pub struct VMFunction {
 
 pub struct Chunk {
 	pub code: Vec<OpCode>,
-	pub constants: Vec<LiteralValue>,
+	pub constants: Vec<ConstantValue>,
 	pub child_functions: Vec<Rc<VMFunction>>,
 }
 
@@ -81,7 +83,7 @@ impl Chunk {
 		self.code.push(op);
 	}
 
-	pub fn add_constant(&mut self, value: LiteralValue) -> usize {
+	pub fn add_constant(&mut self, value: ConstantValue) -> usize {
 		self.constants.push(value);
 		self.constants.len() - 1
 	}
@@ -104,7 +106,8 @@ impl Chunk {
 	pub fn patch_jump(&mut self, placeholder_index: usize, target: usize) {
 		match &mut self.code[placeholder_index] {
 			OpCode::JumpIfFalse(t) => *t = target,
-			OpCode::Jump(t) => *t = target, 
+			OpCode::Jump(t) => *t = target,
+			OpCode::ForIterStart(t, _, _, _) => *t = target,
 			other => panic!("patch_jump called on a non-jump instruction: {:?}", other),
 		}
 	}

@@ -34,7 +34,6 @@ enum VarLocation {
 }
 
 pub struct Compiler {
-	chunk: Chunk,
 	scopes: Vec<FunctionScope>,
 	global_slots: HashMap<String, usize>,
 	next_global_slot: usize,
@@ -53,7 +52,6 @@ impl Compiler {
 			upvalue_names: HashMap::new(),
 		};
 		Self {
-			chunk: Chunk::new(),
 			scopes: vec![top_level],
 			global_slots: HashMap::new(),
 			next_global_slot: 0,
@@ -134,10 +132,28 @@ impl Compiler {
 		for stmt in stmts {
 			self.compile_stmt(stmt)?;
 		}
-		let nil_index = self.scopes[0].chunk.add_constant(LiteralValue::Nil);
+		let nil_index = self.scopes[0].chunk.add_constant(ConstantValue::Nil);
 		self.scopes[0].chunk.emit(OpCode::Const(nil_index));
 		self.scopes[0].chunk.emit(OpCode::Return);
 		Ok((self.scopes.remove(0).chunk, self.next_global_slot))
+	}
+
+	pub fn with_globals(existing_globals: HashMap<String, usize>, next_slot: usize) -> Self {
+		let top_level = FunctionScope {
+			chunk: Chunk::new(),
+			function_name: "<script>".to_string(),
+			arity: 0,
+			locals: vec![],
+			scope_depth: 0,
+			upvalues: vec![],
+			upvalue_names: HashMap::new(),
+		};
+		Self {
+			scopes: vec![top_level],
+			global_slots: existing_globals,
+			next_global_slot: next_slot,
+			loop_stack: vec![],
+		}
 	}
 
 	fn resolve_or_create_global(&mut self, name: &str) -> usize {
@@ -207,11 +223,11 @@ impl Compiler {
 				self.current().chunk.emit(OpCode::SetLocal(slot));
 			}
 			VarLocation::Upvalue(index) => {
-				self.current().chunk.emit(OpCode::GetUpvalue(index));
+				self.current().chunk.emit(OpCode::SetUpvalue(index));
 			}
 			VarLocation::Global => {
 				let slot = self.resolve_or_create_global(name);
-				self.current().chunk.emit(OpCode::GetGlobal(slot));
+				self.current().chunk.emit(OpCode::SetGlobal(slot));
 			}
 		}
 	}
@@ -250,11 +266,11 @@ impl Compiler {
 			}
 			Stmt::Print { expression } => {
 				self.compile_expr(expression)?;
-				self.chunk.emit(OpCode::Print);
+				self.current().chunk.emit(OpCode::Print);
 			}
 			Stmt::Expression { expression } => {
 				self.compile_expr(expression)?;
-				self.chunk.emit(OpCode::Pop);
+				self.current().chunk.emit(OpCode::Pop);
 			}
 			Stmt::Block { statements } => {
 				self.begin_scope();
@@ -274,25 +290,52 @@ impl Compiler {
 				if let Some(els_stmt) = els {
 					self.compile_stmt(els_stmt.as_ref())?;
 				}
-				let after_target = self.chunk.next_index();
-				self.chunk.patch_jump(jump_past_else, after_target);
+				let after_target = self.current().chunk.next_index();
+				self.current().chunk.patch_jump(jump_past_else, after_target);
 			}
 			Stmt::WhileStmt { condition, body } => {
-				let loop_start = self.chunk.next_index();
+				let loop_start = self.current().chunk.next_index();
 				self.compile_expr(condition)?;
-				let jump_to_end = self.chunk.emit_jump_placeholder(OpCode::JumpIfFalse);
+				let jump_to_end = self.current().chunk.emit_jump_placeholder(OpCode::JumpIfFalse);
 				self.loop_stack.push(LoopContext { continue_target: loop_start, break_jumps: vec![], });
 				self.compile_stmt(body.as_ref())?;
 				self.current().chunk.emit(OpCode::Jump(loop_start));
-				let end_target = self.chunk.next_index();
-				self.chunk.patch_jump(jump_to_end, end_target);
+				let end_target = self.current().chunk.next_index();
+				self.current().chunk.patch_jump(jump_to_end, end_target);
 				let ctx = self.loop_stack.pop().expect("loop stack should not be empty");
 				for break_index in ctx.break_jumps {
 					self.current().chunk.patch_jump(break_index, end_target);
 				}
 			}
 			Stmt::ForStmt { variable, iterable, body } => {
-				return Err("for-loops require function calls (range() which aren't implemented in VM yet)".to_string());
+				self.begin_scope();
+				self.compile_expr(iterable)?;
+				let range_slot = self.declare_local("__range__");
+				let zero_index = self.current().chunk.add_constant(ConstantValue::Number(0.0));
+				self.current().chunk.emit(OpCode::Const(zero_index));
+
+				let counter_slot = self.declare_local("__counter__");
+				let nil_index = self.current().chunk.add_constant(ConstantValue::Nil);
+				self.current().chunk.emit(OpCode::Const(nil_index));
+				
+				let var_slot = self.declare_local(&variable.lexeme);
+				let iter_start = self.current().chunk.next_index();
+				let jump_if_done = self.current().chunk.emit_jump_placeholder(|t| OpCode::ForIterStart(t, range_slot, counter_slot, var_slot));
+				self.loop_stack.push(LoopContext {
+					continue_target: iter_start,
+					break_jumps: vec![],
+				});
+				self.compile_stmt(body.as_ref())?;
+				let ctx = self.loop_stack.pop().unwrap();
+
+				self.current().chunk.emit(OpCode::ForIterNext(iter_start, counter_slot));
+				let end_target = self.current().chunk.next_index();
+				
+				self.current().chunk.patch_jump(jump_if_done, end_target);
+				for break_index in ctx.break_jumps {
+					self.current().chunk.patch_jump(break_index, end_target);
+				}
+				self.end_scope();
 			}
 			Stmt::BreakStmt { keyword: _ } => {
 				if self.loop_stack.is_empty() {
@@ -312,7 +355,7 @@ impl Compiler {
 				if let Some(v) = value {
 					self.compile_expr(v)?;
 				} else {
-					let index = self.current().chunk.add_constant(LiteralValue::Nil);
+					let index = self.current().chunk.add_constant(ConstantValue::Nil);
 					self.current().chunk.emit(OpCode::Const(index));
 				}
 				self.current().chunk.emit(OpCode::Return);
@@ -341,7 +384,8 @@ impl Compiler {
 	fn compile_expr(&mut self, expr: &Expr) -> Result<(), String> {
 		match expr {
 			Expr::Literal { id: _, value } => {
-				let index = self.current().chunk.add_constant(value.clone());
+				let cv = Self::literal_to_constant(value)?;
+				let index = self.current().chunk.add_constant(cv);
 				self.current().chunk.emit(OpCode::Const(index));
 			}
 			Expr::Variable { id: _, name } => {
@@ -366,17 +410,17 @@ impl Compiler {
 				self.compile_expr(left)?;
 				self.compile_expr(right)?;
 				match operator.token_type {
-					TokenType::Plus => self.chunk.emit(OpCode::Add),
-					TokenType::Minus => self.chunk.emit(OpCode::Sub),
-					TokenType::Star => self.chunk.emit(OpCode::Mul),
-					TokenType::Slash => self.chunk.emit(OpCode::Div),
-					TokenType::Percent => self.chunk.emit(OpCode::Mod),
-					TokenType::EqualEqual => self.chunk.emit(OpCode::Equal),
-					TokenType::BangEqual => self.chunk.emit(OpCode::NotEqual),
-					TokenType::Greater => self.chunk.emit(OpCode::Greater),
-					TokenType::GreaterEqual => self.chunk.emit(OpCode::GreaterEqual),
-					TokenType::Less => self.chunk.emit(OpCode::Less),
-					TokenType::LessEqual => self.chunk.emit(OpCode::LessEqual),
+					TokenType::Plus => self.current().chunk.emit(OpCode::Add),
+					TokenType::Minus => self.current().chunk.emit(OpCode::Sub),
+					TokenType::Star => self.current().chunk.emit(OpCode::Mul),
+					TokenType::Slash => self.current().chunk.emit(OpCode::Div),
+					TokenType::Percent => self.current().chunk.emit(OpCode::Mod),
+					TokenType::EqualEqual => self.current().chunk.emit(OpCode::Equal),
+					TokenType::BangEqual => self.current().chunk.emit(OpCode::NotEqual),
+					TokenType::Greater => self.current().chunk.emit(OpCode::Greater),
+					TokenType::GreaterEqual => self.current().chunk.emit(OpCode::GreaterEqual),
+					TokenType::Less => self.current().chunk.emit(OpCode::Less),
+					TokenType::LessEqual => self.current().chunk.emit(OpCode::LessEqual),
 					other => {
 						return Err(format!("Unsupported binary operator: {:?}", other))
 					}
@@ -439,7 +483,7 @@ impl Compiler {
 		for stmt in body {
 			self.compile_stmt(stmt)?;
 		}
-		let nil_index = self.current().chunk.add_constant(LiteralValue::Nil);
+		let nil_index = self.current().chunk.add_constant(ConstantValue::Nil);
 		self.current().chunk.emit(OpCode::Const(nil_index));
 		self.current().chunk.emit(OpCode::Return);
 

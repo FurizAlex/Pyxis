@@ -1,4 +1,4 @@
-use crate::bytecode::{Chunk, Closure, OpCode, UpvalueSource, VMFunction};
+use crate::bytecode::{Chunk, Closure, OpCode, UpvalueSource, VMFunction, ConstantValue};
 use crate::compiler::Compiler;
 use crate::expr::LiteralValue;
 use crate::parser::Parser;
@@ -28,15 +28,49 @@ pub struct PyxisVM {
 	globals: Vec<LiteralValue>,
 	stack: Vec<LiteralValue>,
 	open_upvalues: Vec<OpenUpvalue>,
+	native_slots: HashMap<String, usize>,
+}
+
+fn constant_to_literal(cv: ConstantValue) -> LiteralValue {
+	match cv {
+	    ConstantValue::Number(n) => LiteralValue::Number(n),
+	    ConstantValue::Str(s) => LiteralValue::StringValue(s),
+	    ConstantValue::Bool(true) => LiteralValue::True,
+	    ConstantValue::Bool(false) => LiteralValue::False,
+	    ConstantValue::Nil => LiteralValue::Nil,
+	}
 }
 
 impl PyxisVM {
 	pub fn new() -> Self {
-		Self {
+		let mut vm = Self {
 			globals: vec![],
 			stack: vec![],
 			open_upvalues: vec![],
-		}
+			native_slots: HashMap::new(),
+		};
+
+		vm.register_native("range", 1, |args| {
+			match &args[0] {
+				LiteralValue::Number(n) => Ok(LiteralValue::Range(0, *n as i64)),
+				other => Err(format!("range() expects a Number, got {}", other.to_type())),
+			}
+		});
+		vm.register_native("len", 1, |args| {
+			match &args[0] {
+				LiteralValue::List { items } => Ok(LiteralValue::Number(items.borrow().len() as f64)),
+				LiteralValue::StringValue(s) => Ok(LiteralValue::Number(s.len() as f64)),
+				other => Err(format!("len() expects a array or string, got {}", other.to_type())),
+			}
+		});
+		vm.register_native("clock", 0, |_args| {
+			let now = std::time::SystemTime::now()
+				.duration_since(std::time::SystemTime::UNIX_EPOCH)
+				.expect("Could not get system time")
+				.as_millis();
+			Ok(LiteralValue::Number(now as f64 / 1000.0))	
+		});
+		vm
 	}
 
 	pub fn load(&mut self, source: &str) -> Result<(), String> {
@@ -45,7 +79,7 @@ impl PyxisVM {
 		let mut parser = Parser::new(tokens);
 		let stmts = parser.parse()?;
 
-		let compiler = Compiler::new();
+		let compiler = Compiler::with_globals(self.native_slots.clone(), self.globals.len());
 		let (chunk, global_count) = compiler.compile(&stmts)?;
 
 		if self.globals.len() < global_count {
@@ -63,6 +97,18 @@ impl PyxisVM {
 			upvalues: vec![],
 		});
 		self.run(script_closure)
+	}
+
+	pub fn register_native(&mut self, name: &str, arity: usize, f: impl Fn(&[LiteralValue]) -> Result<LiteralValue, String> + 'static,) {
+		let native = LiteralValue::VMNative {
+			name: name.to_string(),
+			arity,
+			fun: Rc::new(f),
+		};
+
+		let slot = self.globals.len();
+		self.globals.push(native);
+		self.native_slots.insert(name.to_string(), slot);
 	}
 
 	fn run(&mut self, initial_closure: Rc<Closure>) -> Result<(), String> {
@@ -90,7 +136,7 @@ impl PyxisVM {
 			match instr {
 				OpCode::Const(index) => {
 					let v = frames.last().unwrap().chunk().constants[index].clone();
-					self.stack.push(v);
+					self.stack.push(constant_to_literal(v));
 				}
 				OpCode::Add => self.binary_numeric_op(|a, b| a + b)?,
 				OpCode::Sub => self.binary_numeric_op(|a, b| a - b)?,
@@ -205,10 +251,53 @@ impl PyxisVM {
 								stack_base: new_base,
 							});
 						}
+						LiteralValue::VMNative { name, arity, fun } => {
+							if argument_count != arity {
+								return Err(format!(
+									"{}() expected {} arguments, got {}",
+									name, arity, argument_count
+								));
+							}
+							let args: Vec<LiteralValue> = self.stack[callee_index + 1..].to_vec();
+							let result = (fun)(&args)?;
+
+							self.stack.truncate(callee_index);
+							self.stack.push(result);
+						}
 						other => {
 							return Err(format!("{} is not callables", other.to_type()));
 						}
 					}
+				}
+				OpCode::ForIterStart(jump_if_done, range_slot, counter_slot, var_slot) => {
+					let base = frame!().stack_base;
+					let range = self.stack[base + range_slot].clone();
+					let counter = match &self.stack[base + counter_slot] {
+						LiteralValue::Number(n) => *n as i64,
+						other => return Err(format!("For loop counter must be a number, got {}", other.to_type())),
+					};
+					match range {
+						LiteralValue::Range(start, end) => {
+							if start + counter >= end {
+								frame!().ip = jump_if_done;
+							} else {
+								self.stack[base + var_slot] = LiteralValue::Number((start + counter) as f64);
+							}
+						}
+						other => return Err(format!("Expected a range to iterate, got {}", other.to_type())),
+					}
+				}
+				OpCode::ForIterNext(jump_back, counter_slot) => {
+					let base = frame!().stack_base;
+					match &self.stack[base + counter_slot] {
+						LiteralValue::Number(n) => {
+							let new_value = n + 1.0;
+							self.stack[base + counter_slot] = LiteralValue::Number(new_value);
+						}
+						other => return Err(format!("For loop counter corrupted: {}", other.to_type())),
+					}
+					frame!().ip = jump_back;
+					continue;
 				}
 				OpCode::Return => {
 					let return_value = self.stack.pop().unwrap();

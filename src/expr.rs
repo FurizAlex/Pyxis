@@ -54,6 +54,11 @@ pub enum LiteralValue {
 	List {
 		items: Rc<RefCell<Vec<LiteralValue>>>,
 	},
+	VMNative {
+		name: String,
+		arity: usize,
+		fun: Rc<dyn Fn(&[LiteralValue]) -> Result<LiteralValue, String>>,
+	}
 }
 use LiteralValue::*;
 
@@ -92,6 +97,9 @@ impl PartialEq for LiteralValue {
 			}
 			(VMClosure(a), VMClosure(b)) => {
 				Rc::ptr_eq(a, b)
+			}
+			(VMNative { name: a, .. }, VMNative { name: b, .. }) => {
+				a == b
 			}
             _ => false,
         }
@@ -163,6 +171,9 @@ impl LiteralValue {
 				let inner: Vec<String> = items.borrow().iter().map(|v| v.to_string()).collect();
 				format!("[{}]", inner.join(", "))
 			}
+			LiteralValue::VMNative { name, arity, .. } => {
+				format!("{}/{}", name, arity)
+			}
         }
     }
 
@@ -183,6 +194,7 @@ impl LiteralValue {
             LiteralValue::PyxisInstance { class, fields: _ } => &class_name!(class),
 			LiteralValue::VMClosure(_) => "Function",
 			LiteralValue::List { .. } => "List",
+			LiteralValue::VMNative { .. } => "NativeFunction",
         }
     }
 
@@ -224,7 +236,7 @@ impl LiteralValue {
             True => False,
             False => True,
             Nil => True,
-            Callable(_) | VMClosure(_) => panic!("Cannot use Callable as a falsy value"),
+            Callable(_) | VMClosure(_) | VMNative { .. } => panic!("Cannot use Callable as a falsy value"),
             PyxisClass { .. } => panic!("Cannot use class as a falsy value"),
             _ => panic!("Not valid as a boolean value"),
         }
@@ -249,7 +261,7 @@ impl LiteralValue {
             True => True,
             False => False,
             Nil => False,
-            Callable(_) | VMClosure(_) => panic!("Cannot use Callable as a truthy value"),
+            Callable(_) | VMClosure(_) | VMNative { .. } => panic!("Cannot use Callable as a truthy value"),
             PyxisClass { .. } => panic!("Cannot use class as a truthy value"),
             _ => panic!("Not valid as a boolean value"),
         }
