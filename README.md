@@ -5,7 +5,7 @@ their own projects.
 PScript is a high-level dynamically typed programming language. While it is a high level language with an interpreter and a garbage collector.
 
 ![pscriptHeader](https://github.com/user-attachments/assets/5f47cf15-e456-4e57-a084-8891c100f871)
-<img width="2000" height="1000" alt="pyxisBackground" src="https://github.com/user-attachments/assets/a6dba1a2-e2da-4368-8a0c-65b20658a118" />
+<img width="2000" height="1000" alt="pyxisBackground" src="https://github.com/user-attachments/assets/81cc5af7-d289-42f2-b691-3cc0d0bf886e" />
 
 # Download and Install
 
