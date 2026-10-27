@@ -29,6 +29,7 @@ pub struct PyxisVM {
 	stack: Vec<LiteralValue>,
 	open_upvalues: Vec<OpenUpvalue>,
 	native_slots: HashMap<String, usize>,
+	is_production: bool,
 }
 
 fn constant_to_literal(cv: ConstantValue) -> LiteralValue {
@@ -48,6 +49,7 @@ impl PyxisVM {
 			stack: vec![],
 			open_upvalues: vec![],
 			native_slots: HashMap::new(),
+			is_production,
 		};
 
 		vm.register_native("range", 1, |args| {
@@ -79,7 +81,7 @@ impl PyxisVM {
 		let mut parser = Parser::new(tokens);
 		let stmts = parser.parse()?;
 
-		let compiler = Compiler::with_globals(self.native_slots.clone(), self.globals.len());
+		let compiler = Compiler::with_globals(self.native_slots.clone(), self.globals.len(), self.is_production);
 		let (chunk, global_count) = compiler.compile(&stmts)?;
 
 		if self.globals.len() < global_count {
@@ -315,6 +317,15 @@ impl PyxisVM {
 			}
 		}
 		Ok(())
+	}
+
+	fn write_stack_slot(&mut self, abs_slot: usize, value: LiteralValue) {
+		for open in &self.open_upvalues {
+			if open.stack_index == abs_slot {
+				*open.cell.borrow_mut() = value.clone();
+			}
+		}
+		self.stack[abs_slot] = value;
 	}
 
 	fn capture_local(&mut self, abs_slot:usize) -> Rc<RefCell<LiteralValue>> {

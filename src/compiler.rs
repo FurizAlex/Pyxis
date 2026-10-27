@@ -3,9 +3,10 @@ use crate::expr::Expr;
 use crate::expr::LiteralValue;
 use crate::scanner::TokenType;
 use crate::stmt::Stmt;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
+#[allow(dead_code)]
 struct FunctionScope {
 	chunk: Chunk,
 	function_name: String,
@@ -20,13 +21,22 @@ struct LocalVar {
 	name: String,
 	depth: usize,
 	is_captured: bool,
+	alias: Option<LinkTarget>,
+}
+
+struct LinkTarget {
+	Global(usize),
+	Local { scope: usize, slot: usize }
 }
 
 struct LoopContext {
-	continue_target: usize,
+	continue_target: Option(usize),
+	continue_jumps: Vec<usize>,
 	break_jumps: Vec<usize>,
+	local_lens: usize,
 }
 
+#[derive(Clone, Copy)]
 enum VarLocation {
 	Local(usize),
 	Upvalue(usize),
@@ -38,10 +48,67 @@ pub struct Compiler {
 	global_slots: HashMap<String, usize>,
 	next_global_slot: usize,
 	loop_stack: Vec<LoopContext>,
+	is_production: bool,
+	ghost_frames: Vec<HashMap<String, bool>>,
+	hotlinks: HashMap<LinkTarget, LinkTarget>,
+	global_alias: HashMap<String>,
+}
+
+fn stmt_kind(stmt: &Stmt) -> &'static str {
+	match stmt {
+		Stmt::Expression { .. } => "expression",
+		Stmt::Print { .. } => "print",
+		Stmt::Var { .. } => "var",
+		Stmt::WrafsVar { .. } => "@wrafs",
+		Stmt::HotlinkVar { .. } => "@hotlink",
+		Stmt::GhostVar { .. } => "@ghost",
+		Stmt::Block { .. } => "block",
+		Stmt::Class { .. } => "class",
+		Stmt::BreakStmt { .. } => "break",
+		Stmt::ContinueStmt { .. } => "continue",
+		Stmt::IfStmt { .. } => "if",
+		Stmt::WhileStmt { .. } => "while",
+		Stmt::ForStmt { .. } => "for",
+		Stmt::Function { .. } => "func",
+		Stmt::CmdFunction { .. } => "command function (<-)",
+		Stmt::ReturnStmt { .. } => "return",
+		Stmt::EntryFunction { .. } => "defi",
+	}
+}
+
+fn expr_refs_ghost(expr: &Expr, is_ghost: &dyn Fn(&str) -> bool) -> bool {
+	match expr {
+		Expr::Variable { name, .. } => is_ghost(&name.lexeme),
+		Expr::Assign { name, value, .. } => is_ghost(&name.lexeme) || expr_refs_ghost(value, is_ghost),
+		Expr::Binary { left, right, .. } | Expr::Logical { left, right, .. } => {
+			expr_refs_ghost(left, is_ghost) || expr_refs_ghost(right, is_ghost)
+		}
+		Expr::Call { callee, arguments, .. } => {
+			expr_refs_ghost(callee, is_ghost) || arguments.iter().any(|a| expr_refs_ghost(a, is_ghost))
+		}
+		Expr::Get { object, .. } => expr_refs_ghost(object, is_ghost),
+		Expr::Set { object, value, .. } => expr_refs_ghost(object, is_ghost) || expr_refs_ghost(value, is_ghost),
+		Expr::Grouping { expression, .. } => expr_refs_ghost(expression, is_ghost),
+		Expr::Unary { right, .. } => expr_refs_ghost(right, is_ghost),
+		Expr::ListLiteral { items, .. } => items.iter().any(|i| expr_refs_ghost(i, is_ghost)),
+		Expr::Index { object, index, .. } => expr_refs_ghost(object, is_ghost) || expr_refs_ghost(index, is_ghost),
+		Expr::IndexSet { object, index, value, .. } => {
+			expr_refs_ghost(object, is_ghost) || expr_refs_ghost(index, is_ghost) || expr_refs_ghost(value, is_ghost)
+		}
+		Expr::Literal { .. } | Expr::This { .. } | Expr::Super { .. } | Expr::AnonFunction { .. } => false,
+	}
 }
 
 impl Compiler {
 	pub fn new() -> Self {
+		Self::build(HashMap.new(), 0, false)
+	}
+
+	pub fn with_globals(existing_globals: HashMap<String, usize>, next_slot: usize, is_production: bool) -> self {
+		Self::build(existing_globals, next_slot, is_production)
+	}
+
+	fn build(global_slots: HashMap<String, usize>, next_slot: usize, is_production: bool) -> Self {
 		let top_level = FunctionScope {
 			chunk: Chunk::new(),
 			function_name: "<script>".to_string(),
@@ -53,23 +120,29 @@ impl Compiler {
 		};
 		Self {
 			scopes: vec![top_level],
-			global_slots: HashMap::new(),
-			next_global_slot: 0,
+			global_slots,
+			next_global_slot: next_slot,
 			loop_stack: vec![],
+			is_production,
+			ghost_frames: vec![HashMap::new()],
+			hotlinks: HashMap::new(),
+			global_alias: HashMap::new(),
 		}
 	}
-
+	
 	fn current(&mut self) -> &mut FunctionScope {
 		self.scopes.last_mut().expect("Scopes should never be empty")
 	}
 	
 	fn begin_scope(&mut self) {
 		self.current().scope_depth += 1;
+		self.ghost_frames.push(HashMap::new());
 	}
 
 	fn end_scope(&mut self) {
 		let depth = self.current().scope_depth;
 		self.current().scope_depth -= 1;
+		self.ghost_frames.pop();
 
 		loop {
 			let should_close = {
@@ -96,36 +169,146 @@ impl Compiler {
 		}
 	}
 
+	fn is_ghost(&self, name: str) -> bool {
+		for frame in self.ghost_frames.iter().rev() {
+			if let Some(&g) = frame.get(name) {
+				return g;
+			}
+		}
+		false
+	}
+
+	fn mark_name(&mut self, name: &str, is_ghost: bool) {
+		self.ghost_frames.last_mut().unwrap().insert(name.to_string(), is_ghost)
+	}
+
+	fn stmt_refs_ghost(&self, stmt: &Stmt) -> bool {
+		let g = |n: &str| self.is_ghost(n);
+		match stmt {
+			Stmt::Expression { expression } | Stmt::Print { expression } => expr_refs_ghost(expression, &g),
+			Stmt::Var { initializer, .. } => expr_refs_ghost(initializer, &g),
+			Stmt::WrafsVar { source, .. } | Stmt::HotlinkVar { source, .. } => g(&source.lexeme),
+			Stmt::ReturnStmt { value: Some(v), .. } => expr_refs_ghost(v, &g),
+			Stmt::IfStmt { predicate, .. } => expr_refs_ghost(predicate, &g),
+			Stmt::WhileStmt { condition, .. } => expr_refs_ghost(condition, &g),
+			Stmt::ForStmt { iterable, .. } => expr_refs_ghost(iterable, &g),
+			_ => false,
+		}
+	}
+	
 	fn declare_local(&mut self, name: &str) -> usize {
 		let depth = self.current().scope_depth;
 		let slot = self.current().locals.len();
+		let scope = self.scopes.len() - 1;
+
+		self.hotlinks.remove(&LinkTarget::Local {scope, slot});
 		self.current().locals.push(LocalVar {
 			name: name.to_string(),
 			depth,
 			is_captured: false,
+			alias: None,
 		});
+		self.mark_name(name, false);
 		slot
 	}
 
-	fn resolve_local_in_current(&self, name: &str) -> Option<usize> {
-		let scope = self.scopes.last().unwrap();
+	fn define_variable(&mut self, name: &str) -> LinkTarget {
+		if self.current().scope_depth > 0 {
+			let slot = self.declare_local(name);
+			LinkTarget::Local {scope: self.scopes.len() - 1, slot }
+		} else {
+			if self.global_alias.remove(name) {
+				self.global_slots.remove(name)
+			}
+			let slot = self.resolve_or_create_global(name);
+			self.hotlinks.remove(&LinkTarget::Global(slot))
+			self.mark_name(name, false)
+			self.current().chunk.emit(OpCode::DefineGlobal(slot));
+			LinkTarget::Global(slot)
+		}
+	}
 
-		for (i, local) in scope.locals.iter().enumerate().rev() {
-			if local.name == name {
-				return Some(i);
+	fn resolve_in_scope(&mut self, si: usize, name: &str) -> Option<VarLocation> {
+		let found = self.scopes[si].locals.iter().enumerate().rev().find(|(_, l)| l.name == name).map(|(i, l)| (i, l.alias));
+		if let Some((slot, alias)) = found {
+			return Some(match alias
+				Some(target) => self.locate_target(si, target),
+				None => VarLocation::Local(slot),
+		});
+	}
+	if si == 0 {
+		return None;
+	}
+	if let Some(&idx) = self.scopes[si].upvalue_names.get(name) {
+		return Some(VarLocation::Upvalue(idx));
+	}
+	match self.resolve_in_scope(si - 1, name)? {
+		VarLocation::Local(slot) => {
+			Some(VarLocation::Upvalue(self.add_upvalue(si, name, UpvalueSource::Local(slot))))
+		}
+		VarLocation::Upvalue(i) => {
+			Some(VarLocation::Upvalue(self.add_upvalue(si, name, UpvalueSource::Upvalue(i))))
+		}
+		VarLocation::Global(s) => Some(VarLocation::Global(s)),
+	}
+
+	fn locate_target(&mut self, si: usize, target: LinkTarget) -> VarLocation {
+		match target {
+			LinkTarget::Global(s) => VarLocation::Global(s),
+			LinkTarget::Local { scope, slot } if scope == si => VarLocation::Local(slot),
+			LinkTarget::Local { scope, slot } => {
+				let key = format!("\0link:{}:{}", scope, slot);
+				if let Some(&idx) = self.scopes[si].upvalue_names.get(&key) {
+					return VarLocation::Upvalue(idx);
+				}
+				let source = match self.locate_target(si - 1, target) {
+					VarLocation::Local(sl) => UpvalueSource::Local(sl),
+					VarLocation::Upvalue(i) => UpvalueSource::Upvalue(i),
+					VarLocation::Global(s) => return VarLocation::Global(s), 
+				};
+				VarLocation::Upvalue(self.add_upvalue(si, &key, source))
 			}
 		}
-		None
+	}
+
+	fn target_of(&self, loc: VarLocation) -> LinkTarget {
+		let curr = self.scopes.len() - 1;
+		match loc {
+			VarLocation::Global(s) => LinkTarget::Global(s),
+			VarLocation::Local(s) => LinkTarget::Local { scope: cur, slot },
+			VarLocation::Upvalue(idx) => {
+				let mut si = cur;
+				let mut i = idx;
+				loop {
+					match self.scopes[si].upvalues[i] {
+						UpvalueSource::Local(slot) => return LinkTarget::Local { scope: si - 1, slot },
+						UpvalueSource::Upvalue(j) => {
+							si -= 1;
+							i = j;
+						}
+					}
+				}
+			}
+		}
 	}
 
 	fn resolve_variable(&mut self, name: &str) -> VarLocation {
-		if let Some(slot) = self.resolve_local_in_current(name) {
-			return VarLocation::Local(slot);
+		let si = self.scopes.len() - 1;
+		match self.resolve_in_scope(si, name) {
+			Some(loc) => loc,
+			None => VarLocation::Global(self.resolve_or_create_global(name)),
 		}
-		if let Some(upvalue_index) = self.resolve_upvalue(self.scopes.len() - 1, name) {
-			return VarLocation::Upvalue(upvalue_index);
+	}
+
+	fn resolve_existing(&mut self, name: &str, line: usize, what: &str) -> Result<VarLocation, String> {
+		let si = self.scopes.len() - 1;
+		match self.resolve_in_scope(si, name) {
+			Some(loc) => Ok(loc),
+			None => match self.global_slots.get(name) {
+				Some(&slot) => Ok(VarLocation::Global(slot)),
+				None => Err(format!("Line {}: '{}' has not been declared, cannot {} to it", line, name, what)),
+			},
 		}
-		VarLocation::Global
 	}
 
 	pub fn compile(mut self, stmts: &[Stmt]) -> Result<(Chunk, usize), String> {
@@ -138,24 +321,6 @@ impl Compiler {
 		Ok((self.scopes.remove(0).chunk, self.next_global_slot))
 	}
 
-	pub fn with_globals(existing_globals: HashMap<String, usize>, next_slot: usize) -> Self {
-		let top_level = FunctionScope {
-			chunk: Chunk::new(),
-			function_name: "<script>".to_string(),
-			arity: 0,
-			locals: vec![],
-			scope_depth: 0,
-			upvalues: vec![],
-			upvalue_names: HashMap::new(),
-		};
-		Self {
-			scopes: vec![top_level],
-			global_slots: existing_globals,
-			next_global_slot: next_slot,
-			loop_stack: vec![],
-		}
-	}
-
 	fn resolve_or_create_global(&mut self, name: &str) -> usize {
 		if let Some(&slot) = self.global_slots.get(name) {
 			slot
@@ -165,29 +330,6 @@ impl Compiler {
 			self.next_global_slot += 1;
 			slot
 		}
-	}
-	
-	fn resolve_upvalue(&mut self, scope_index: usize, name: &str) -> Option<usize> {
-		if scope_index == 0 {
-			return None;
-		}
-		let enclosing_index = scope_index - 1;
-		if let Some(&existing) = self.scopes[scope_index].upvalue_names.get(name) {
-			return Some(existing);
-		}
-		let local_slot = {
-			let enclosing = &self.scopes[enclosing_index];
-			enclosing.locals.iter().enumerate().rev().find(|(_, l)| l.name == name).map(|(i, _)| i)
-		};
-		if let Some(slot) = local_slot {
-			let index = self.add_upvalue(scope_index, name, UpvalueSource::Local(slot));
-			return Some(index);
-		}
-		if let Some(outer_upvalue_index) = self.resolve_upvalue(enclosing_index, name) {
-			let index = self.add_upvalue(scope_index, name, UpvalueSource::Upvalue(outer_upvalue_index));
-			return Some(index);
-		}
-		None
 	}
 
 	fn add_upvalue(&mut self, scope_index: usize, name: &str, source: UpvalueSource) -> usize {
@@ -202,32 +344,51 @@ impl Compiler {
 		index
 	}
 
+	fn emit_get_location(&mut self, loc: VarLocation) {
+		let op = match loc {
+			VarLocation::Local(slot) => OpCode::GetLocal(slot),
+			VarLocation::Upvalue(index) => OpCode::GetUpvalue(index),
+			VarLocation::Global(slot) => OpCode::GetGlobal(slot),
+		};
+		self.current().chunk.emit(op);
+	}
+
+	fn emit_set_location(&mut self, loc: VarLocation) {
+		let op = match loc {
+			VarLocation::Local(slot) => OpCode::SetLocal(slot),
+			VarLocation::Upvalue(index) => OpCode::SetUpvalue(index),
+			VarLocation::Global(slot) => OpCode::SetGlobal(slot),
+		};
+		self.current().chunk.emit(op);
+	}
+
 	fn emit_get_variable(&mut self, name: &str) {
-		match self.resolve_variable(name) {
-			VarLocation::Local(slot) => {
-				self.current().chunk.emit(OpCode::GetLocal(slot));
-			}
-			VarLocation::Upvalue(index) => {
-				self.current().chunk.emit(OpCode::GetUpvalue(index));
-			}
-			VarLocation::Global => {
-				let slot = self.resolve_or_create_global(name);
-				self.current().chunk.emit(OpCode::GetGlobal(slot));
-			}
-		}
+		let loc = self.resolve_variable(name);
+		self.emit_get_location(loc);
 	}
 
 	fn emit_set_variable(&mut self, name: &str) {
-		match self.resolve_variable(name) {
-			VarLocation::Local(slot) => {
-				self.current().chunk.emit(OpCode::SetLocal(slot));
+		let loc = self.resolve_variable(name);
+		self.emit_set_location(loc);
+
+		let cur = self.scopes.len() - 1;
+		let mut target = self.target_of(loc);
+		while let Some(source) = self.hotlinks.get(&target).copied() {
+			let source_loc = self.locate_target(cur, target);
+			self.emit_set_location(source_loc);
+			target = source;
+		}
+	}
+
+	fn link_chain_reaches(&self, from: LinkTarget, to: LinkTarget) -> bool {
+		let mut t = from;
+		loop {
+			if t == to {
+				return true;
 			}
-			VarLocation::Upvalue(index) => {
-				self.current().chunk.emit(OpCode::SetUpvalue(index));
-			}
-			VarLocation::Global => {
-				let slot = self.resolve_or_create_global(name);
-				self.current().chunk.emit(OpCode::SetGlobal(slot));
+			match self.hotlinks.get(&t) {
+				Some(&next) => t = next,
+				None => return false
 			}
 		}
 	}
@@ -253,16 +414,71 @@ impl Compiler {
 		}
 	}
 
+	fn emit_pops_to(&mut self, keep: usize) {
+		let total = self.current().locals.len();
+		for i in (keep..total).rev() {
+			let captured = self.current().locals[i].is_captured;
+			if captured {
+				self.current().chunk.emit(OpCode::CloseUpvalue(i));
+			} else {
+				self.current().chunk.emit(OpCode::Pop);
+			}
+		}
+	}
+
 	fn compile_stmt(&mut self, stmt: &Stmt) -> Result<(), String> {
+		if self.is_production {
+			if self.stmt_refs_ghost(stmt) {
+				match stmt {
+					Stmt::Var { name, .. } | Stmt::WrafsVar { name, .. } | Stmt::HotlinkVar { name, .. } => {
+						self.mark_name(&name.lexeme, true);
+					}
+					_ => {}
+				}
+				return Ok(());
+			}
+			if let Stmt::GhostVar { name, .. } = stmt {
+				self.mark_name(&name.lexeme, true);
+				return Ok(());
+			}
+		}
 		match stmt {
 			Stmt::Var { name, initializer } => {
 				self.compile_expr(initializer)?;
+				self.define_variable(&name.lexeme);
+			}
+			Stmt::GhostVar { name, initializer } => {
+				self.compile_expr(initializer)?;
+				self.define_variable(&name.lexeme);
+			}
+			Stmt::WrafsVar { id: _, name, source } => {
+				let loc = self.resolve_existing(&source.lexeme, source.line_number, "@wrafs")?;
+				let target = self.target_of(loc);
 				if self.current().scope_depth > 0 {
-					self.declare_local(&name.lexeme);
+					let nil = self.current().chunk.add_constant(ConstantValue::Nil);
+					self.current().chunk.emit(OpCode::Const(nil));
+					let slot = self.declare_local(&name.lexeme);
+					self.current().locals[slot].alias = Some(target);
+				} else if let LinkTarget::Global(slot) = target {
+					self.global_slots.insert(name.lexeme.clone(), slot);
+					self.global_aliased.insert(name.lexeme.clone());
+					self.mark_name(&name.lexeme, false);
 				} else {
-					let slot = self.resolve_or_create_global(&name.lexeme);
-					self.current().chunk.emit(OpCode::DefineGlobal(slot));
+					return Err(format!("Line {}: internal error, global @wrafs of a local", name.line_number));
 				}
+			}
+			Stmt::HotlinkVar { id: _, name, source } => {
+				let loc = self.resolve_existing(&source.lexeme, source.line_number, "@hotlink")?;
+				let target = self.target_of(loc);
+				self.emit_get_location(loc);
+				let linked = self.define_variable(&name.lexeme);
+				if self.link_chain_reaches(target, linked) {
+					return Err(format!(
+						"Line {}: '{}' cannot be hotlinked to '{}' (it would link back to itself)",
+						name.line_number, name.lexeme, source.lexeme
+					));
+				}
+				self.hotlinks.insert(linked, target);
 			}
 			Stmt::Print { expression } => {
 				self.compile_expr(expression)?;
@@ -283,7 +499,7 @@ impl Compiler {
 				self.compile_expr(predicate)?;
 				let jump_to_else = self.current().chunk.emit_jump_placeholder(OpCode::JumpIfFalse);
 				self.compile_stmt(then.as_ref())?;
-
+ 
 				let jump_past_else = self.current().chunk.emit_jump_placeholder(OpCode::Jump);
 				let else_target = self.current().chunk.next_index();
 				self.current().chunk.patch_jump(jump_to_else, else_target);
@@ -297,7 +513,13 @@ impl Compiler {
 				let loop_start = self.current().chunk.next_index();
 				self.compile_expr(condition)?;
 				let jump_to_end = self.current().chunk.emit_jump_placeholder(OpCode::JumpIfFalse);
-				self.loop_stack.push(LoopContext { continue_target: loop_start, break_jumps: vec![], });
+				let locals_len = self.current().locals.len();
+				self.loop_stack.push(LoopContext {
+					continue_target: Some(loop_start),
+					continue_jumps: vec![],
+					break_jumps: vec![],
+					locals_len,
+				});
 				self.compile_stmt(body.as_ref())?;
 				self.current().chunk.emit(OpCode::Jump(loop_start));
 				let end_target = self.current().chunk.next_index();
@@ -313,24 +535,31 @@ impl Compiler {
 				let range_slot = self.declare_local("__range__");
 				let zero_index = self.current().chunk.add_constant(ConstantValue::Number(0.0));
 				self.current().chunk.emit(OpCode::Const(zero_index));
-
+ 
 				let counter_slot = self.declare_local("__counter__");
 				let nil_index = self.current().chunk.add_constant(ConstantValue::Nil);
 				self.current().chunk.emit(OpCode::Const(nil_index));
-				
+ 
 				let var_slot = self.declare_local(&variable.lexeme);
 				let iter_start = self.current().chunk.next_index();
 				let jump_if_done = self.current().chunk.emit_jump_placeholder(|t| OpCode::ForIterStart(t, range_slot, counter_slot, var_slot));
+				let locals_len = self.current().locals.len();
 				self.loop_stack.push(LoopContext {
-					continue_target: iter_start,
+					continue_target: None,
+					continue_jumps: vec![],
 					break_jumps: vec![],
+					locals_len,
 				});
 				self.compile_stmt(body.as_ref())?;
 				let ctx = self.loop_stack.pop().unwrap();
-
+ 
+				let next_index = self.current().chunk.next_index();
+				for continue_index in ctx.continue_jumps {
+					self.current().chunk.patch_jump(continue_index, next_index);
+				}
 				self.current().chunk.emit(OpCode::ForIterNext(iter_start, counter_slot));
 				let end_target = self.current().chunk.next_index();
-				
+ 
 				self.current().chunk.patch_jump(jump_if_done, end_target);
 				for break_index in ctx.break_jumps {
 					self.current().chunk.patch_jump(break_index, end_target);
@@ -338,18 +567,27 @@ impl Compiler {
 				self.end_scope();
 			}
 			Stmt::BreakStmt { keyword: _ } => {
-				if self.loop_stack.is_empty() {
-					return Err("'break is not allowed outside of a loop".to_string());
-				}
+				let keep = match self.loop_stack.last() {
+					Some(ctx) => ctx.locals_len,
+					None => return Err("'break' is not allowed outside of a loop".to_string()),
+				};
+				self.emit_pops_to(keep);
 				let jump_index = self.current().chunk.emit_jump_placeholder(OpCode::Jump);
 				self.loop_stack.last_mut().unwrap().break_jumps.push(jump_index);
 			}
 			Stmt::ContinueStmt { keyword: _ } => {
-				if self.loop_stack.is_empty() {
-					return Err("'continue' is not allowed outside of a loop".to_string());
+				let (keep, target) = match self.loop_stack.last() {
+					Some(ctx) => (ctx.locals_len, ctx.continue_target),
+					None => return Err("'continue' is not allowed outside of a loop".to_string()),
+				};
+				self.emit_pops_to(keep);
+				match target {
+					Some(t) => self.current().chunk.emit(OpCode::Jump(t)),
+					None => {
+						let jump_index = self.current().chunk.emit_jump_placeholder(OpCode::Jump);
+						self.loop_stack.last_mut().unwrap().continue_jumps.push(jump_index);
+					}
 				}
-				let target = self.loop_stack.last().unwrap().continue_target;
-				self.current().chunk.emit(OpCode::Jump(target));
 			}
 			Stmt::ReturnStmt { keyword: _, value } => {
 				if let Some(v) = value {
@@ -362,24 +600,15 @@ impl Compiler {
 			}
 			Stmt::Function { name, params, body } => {
 				self.compile_function(&name.lexeme, &params.iter().map(|t| t.lexeme.clone()).collect::<Vec<_>>(), &body.iter().map(|b| b.as_ref()).collect::<Vec<_>>(),)?;
-				if self.current().scope_depth > 0 {
-					self.declare_local(&name.lexeme);
-				} else {
-					let slot = self.resolve_or_create_global(&name.lexeme);
-					self.current().chunk.emit(OpCode::DefineGlobal(slot));
-				}
-			}
-			Stmt::Block { statements } => {
-				for s in statements {
-					self.compile_stmt(s.as_ref())?;
-				}
+				self.define_variable(&name.lexeme);
 			}
 			other => {
-				return Err(format!("VM Compiler: Unsupported statement {}", other.to_string()));
+				return Err(format!("VM Compiler: '{}' is not supported yet", stmt_kind(other)));
 			}
 		}
 		Ok(())
 	}
+
 	
 	fn compile_expr(&mut self, expr: &Expr) -> Result<(), String> {
 		match expr {
@@ -472,10 +701,11 @@ impl Compiler {
 			arity: params.len(),
 			locals: vec![],
 			scope_depth: 1,
-
 			upvalues: vec![],
 			upvalue_names: HashMap::new(),
 		});
+		self.ghost_frames.push(HashMap::new());
+		let saved_loops = std::mem::take(&mut self.loop_stack);
 
 		for param in params {
 			self.declare_local(param);
@@ -487,6 +717,8 @@ impl Compiler {
 		self.current().chunk.emit(OpCode::Const(nil_index));
 		self.current().chunk.emit(OpCode::Return);
 
+		self.loop_stack = saved_loops;
+		self.ghost_frames.pop();
 		let fn_scope = self.scopes.pop().unwrap();
 		let upvalue_sources = fn_scope.upvalues.clone();
 		let compiled_fn = Rc::new(VMFunction {
