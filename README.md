@@ -13,9 +13,11 @@ Currently no way to install as a packaged-project
 
 For Developers:
 
- `git clone https://github.com/FurizAlex/Pyxis.git`
- `cd Pyxis`
- `git checkout -b [YOUR FEATURE HERE]`
+```
+git clone https://github.com/FurizAlex/Pyxis.git
+cd Pyxis
+git checkout -b [YOUR FEATURE HERE]
+```
 
 # Support Pyxis!
 If you like the Pyxis Programming Language. Consider donating to my pateron!
