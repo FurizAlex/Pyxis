@@ -43,7 +43,7 @@ fn constant_to_literal(cv: ConstantValue) -> LiteralValue {
 }
 
 impl PyxisVM {
-	pub fn new() -> Self {
+	pub fn new(is_production: bool) -> Self {
 		let mut vm = Self {
 			globals: vec![],
 			stack: vec![],
@@ -193,6 +193,10 @@ impl PyxisVM {
 				}
 				OpCode::Pop => {
 					self.stack.pop();
+				}
+				OpCode::Dup => {
+					let v = self.stack.last().expect("Stack underflow").clone();
+					self.stack.push(v);
 				}
 				OpCode::JumpIfFalse(target) => {
 					let v = self.stack.pop().expect("Stack underflow on JumpIfFalse");

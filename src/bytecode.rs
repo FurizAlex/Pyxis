@@ -25,6 +25,7 @@ pub enum OpCode {
 	DefineGlobal(usize),
 	Print,
 	Pop,
+	Dup,
 	JumpIfFalse(usize),
 	Jump(usize),
 	Equal,

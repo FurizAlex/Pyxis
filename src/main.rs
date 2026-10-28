@@ -27,14 +27,14 @@ fn isProductionMode() -> bool {
 
 #[allow(non_snake_case)]
 pub fn runStringOnVM(contents: &str) -> Result<(), String> {
-	let mut vm = PyxisVM::new();
+	let mut vm = PyxisVM::new(isProductionMode());
 	vm.load(contents)
 }
 
 #[allow(non_snake_case)]
 pub fn runFileOnVM(path: &str) -> Result<(), String> {
 	let contents = fs::read_to_string(path).map_err(|e| e.to_string())?;
-	let mut vm = PyxisVM::new();
+	let mut vm = PyxisVM::new(isProductionMode());
 	vm.load(&contents)
 }
 

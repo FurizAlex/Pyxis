@@ -1,14 +1,13 @@
 use crate::bytecode::{Chunk, OpCode, UpvalueSource, VMFunction, ConstantValue};
 use crate::expr::Expr;
-use crate::expr::LiteralValue;
 use crate::scanner::TokenType;
 use crate::stmt::Stmt;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
-#[allow(dead_code)]
 struct FunctionScope {
 	chunk: Chunk,
+	#[allow(dead_code)]
 	function_name: String,
 	arity: usize,
 	locals: Vec<LocalVar>,
@@ -21,26 +20,31 @@ struct LocalVar {
 	name: String,
 	depth: usize,
 	is_captured: bool,
+	// @wrafs: this local is just another name for `alias`. Its own stack slot is a dummy.
 	alias: Option<LinkTarget>,
 }
 
-struct LinkTarget {
+// Identity of a piece of storage, independent of which function is looking at it.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+enum LinkTarget {
 	Global(usize),
-	Local { scope: usize, slot: usize }
+	Local { scope: usize, slot: usize },
 }
 
 struct LoopContext {
-	continue_target: Option(usize),
+	// `while` knows its continue target up front; `for` has to patch it (it must hit ForIterNext)
+	continue_target: Option<usize>,
 	continue_jumps: Vec<usize>,
 	break_jumps: Vec<usize>,
-	local_lens: usize,
+	// number of locals that existed when the body started; anything above is popped on break/continue
+	locals_len: usize,
 }
 
 #[derive(Clone, Copy)]
 enum VarLocation {
 	Local(usize),
 	Upvalue(usize),
-	Global,
+	Global(usize),
 }
 
 pub struct Compiler {
@@ -49,9 +53,12 @@ pub struct Compiler {
 	next_global_slot: usize,
 	loop_stack: Vec<LoopContext>,
 	is_production: bool,
+	// name -> is_ghost, one frame per lexical block (frame 0 = globals)
 	ghost_frames: Vec<HashMap<String, bool>>,
+	// @hotlink: writing the key also writes the value (never the other way round)
 	hotlinks: HashMap<LinkTarget, LinkTarget>,
-	global_alias: HashMap<String>,
+	// global names that currently share a slot because of @wrafs
+	global_aliased: HashSet<String>,
 }
 
 fn stmt_kind(stmt: &Stmt) -> &'static str {
@@ -95,16 +102,17 @@ fn expr_refs_ghost(expr: &Expr, is_ghost: &dyn Fn(&str) -> bool) -> bool {
 		Expr::IndexSet { object, index, value, .. } => {
 			expr_refs_ghost(object, is_ghost) || expr_refs_ghost(index, is_ghost) || expr_refs_ghost(value, is_ghost)
 		}
+		// Statements inside an anon function body go through compile_stmt, which does its own check
 		Expr::Literal { .. } | Expr::This { .. } | Expr::Super { .. } | Expr::AnonFunction { .. } => false,
 	}
 }
 
 impl Compiler {
 	pub fn new() -> Self {
-		Self::build(HashMap.new(), 0, false)
+		Self::build(HashMap::new(), 0, false)
 	}
 
-	pub fn with_globals(existing_globals: HashMap<String, usize>, next_slot: usize, is_production: bool) -> self {
+	pub fn with_globals(existing_globals: HashMap<String, usize>, next_slot: usize, is_production: bool) -> Self {
 		Self::build(existing_globals, next_slot, is_production)
 	}
 
@@ -126,14 +134,14 @@ impl Compiler {
 			is_production,
 			ghost_frames: vec![HashMap::new()],
 			hotlinks: HashMap::new(),
-			global_alias: HashMap::new(),
+			global_aliased: HashSet::new(),
 		}
 	}
-	
+
 	fn current(&mut self) -> &mut FunctionScope {
 		self.scopes.last_mut().expect("Scopes should never be empty")
 	}
-	
+
 	fn begin_scope(&mut self) {
 		self.current().scope_depth += 1;
 		self.ghost_frames.push(HashMap::new());
@@ -148,9 +156,7 @@ impl Compiler {
 			let should_close = {
 				let scope = self.current();
 				match scope.locals.last() {
-					Some(local) if local.depth == depth => {
-						Some(local.is_captured)
-					}
+					Some(local) if local.depth == depth => Some(local.is_captured),
 					_ => None,
 				}
 			};
@@ -169,7 +175,7 @@ impl Compiler {
 		}
 	}
 
-	fn is_ghost(&self, name: str) -> bool {
+	fn is_ghost(&self, name: &str) -> bool {
 		for frame in self.ghost_frames.iter().rev() {
 			if let Some(&g) = frame.get(name) {
 				return g;
@@ -179,7 +185,7 @@ impl Compiler {
 	}
 
 	fn mark_name(&mut self, name: &str, is_ghost: bool) {
-		self.ghost_frames.last_mut().unwrap().insert(name.to_string(), is_ghost)
+		self.ghost_frames.last_mut().unwrap().insert(name.to_string(), is_ghost);
 	}
 
 	fn stmt_refs_ghost(&self, stmt: &Stmt) -> bool {
@@ -195,13 +201,13 @@ impl Compiler {
 			_ => false,
 		}
 	}
-	
+
 	fn declare_local(&mut self, name: &str) -> usize {
 		let depth = self.current().scope_depth;
 		let slot = self.current().locals.len();
 		let scope = self.scopes.len() - 1;
-
-		self.hotlinks.remove(&LinkTarget::Local {scope, slot});
+		// a reused slot must not inherit a stale hotlink from a variable that used to live there
+		self.hotlinks.remove(&LinkTarget::Local { scope, slot });
 		self.current().locals.push(LocalVar {
 			name: name.to_string(),
 			depth,
@@ -212,46 +218,57 @@ impl Compiler {
 		slot
 	}
 
+	// Defines a new variable from the value on top of the stack (local or global).
 	fn define_variable(&mut self, name: &str) -> LinkTarget {
 		if self.current().scope_depth > 0 {
 			let slot = self.declare_local(name);
-			LinkTarget::Local {scope: self.scopes.len() - 1, slot }
+			LinkTarget::Local { scope: self.scopes.len() - 1, slot }
 		} else {
-			if self.global_alias.remove(name) {
-				self.global_slots.remove(name)
+			// redefining a name that was a @wrafs alias must give it its own slot again
+			if self.global_aliased.remove(name) {
+				self.global_slots.remove(name);
 			}
 			let slot = self.resolve_or_create_global(name);
-			self.hotlinks.remove(&LinkTarget::Global(slot))
-			self.mark_name(name, false)
+			self.hotlinks.remove(&LinkTarget::Global(slot));
+			self.mark_name(name, false);
 			self.current().chunk.emit(OpCode::DefineGlobal(slot));
 			LinkTarget::Global(slot)
 		}
 	}
 
+	// Looks a name up as seen from function scope `si`. None means "not a local or upvalue" (so: global).
 	fn resolve_in_scope(&mut self, si: usize, name: &str) -> Option<VarLocation> {
-		let found = self.scopes[si].locals.iter().enumerate().rev().find(|(_, l)| l.name == name).map(|(i, l)| (i, l.alias));
+		let found = self.scopes[si]
+			.locals
+			.iter()
+			.enumerate()
+			.rev()
+			.find(|(_, l)| l.name == name)
+			.map(|(i, l)| (i, l.alias));
 		if let Some((slot, alias)) = found {
-			return Some(match alias
+			return Some(match alias {
 				Some(target) => self.locate_target(si, target),
 				None => VarLocation::Local(slot),
-		});
-	}
-	if si == 0 {
-		return None;
-	}
-	if let Some(&idx) = self.scopes[si].upvalue_names.get(name) {
-		return Some(VarLocation::Upvalue(idx));
-	}
-	match self.resolve_in_scope(si - 1, name)? {
-		VarLocation::Local(slot) => {
-			Some(VarLocation::Upvalue(self.add_upvalue(si, name, UpvalueSource::Local(slot))))
+			});
 		}
-		VarLocation::Upvalue(i) => {
-			Some(VarLocation::Upvalue(self.add_upvalue(si, name, UpvalueSource::Upvalue(i))))
+		if si == 0 {
+			return None;
 		}
-		VarLocation::Global(s) => Some(VarLocation::Global(s)),
+		if let Some(&idx) = self.scopes[si].upvalue_names.get(name) {
+			return Some(VarLocation::Upvalue(idx));
+		}
+		match self.resolve_in_scope(si - 1, name)? {
+			VarLocation::Local(slot) => {
+				Some(VarLocation::Upvalue(self.add_upvalue(si, name, UpvalueSource::Local(slot))))
+			}
+			VarLocation::Upvalue(i) => {
+				Some(VarLocation::Upvalue(self.add_upvalue(si, name, UpvalueSource::Upvalue(i))))
+			}
+			VarLocation::Global(s) => Some(VarLocation::Global(s)),
+		}
 	}
 
+	// Where do I find the storage `target` from inside function scope `si`?
 	fn locate_target(&mut self, si: usize, target: LinkTarget) -> VarLocation {
 		match target {
 			LinkTarget::Global(s) => VarLocation::Global(s),
@@ -264,7 +281,7 @@ impl Compiler {
 				let source = match self.locate_target(si - 1, target) {
 					VarLocation::Local(sl) => UpvalueSource::Local(sl),
 					VarLocation::Upvalue(i) => UpvalueSource::Upvalue(i),
-					VarLocation::Global(s) => return VarLocation::Global(s), 
+					VarLocation::Global(s) => return VarLocation::Global(s),
 				};
 				VarLocation::Upvalue(self.add_upvalue(si, &key, source))
 			}
@@ -272,10 +289,10 @@ impl Compiler {
 	}
 
 	fn target_of(&self, loc: VarLocation) -> LinkTarget {
-		let curr = self.scopes.len() - 1;
+		let cur = self.scopes.len() - 1;
 		match loc {
 			VarLocation::Global(s) => LinkTarget::Global(s),
-			VarLocation::Local(s) => LinkTarget::Local { scope: cur, slot },
+			VarLocation::Local(slot) => LinkTarget::Local { scope: cur, slot },
 			VarLocation::Upvalue(idx) => {
 				let mut si = cur;
 				let mut i = idx;
@@ -300,6 +317,7 @@ impl Compiler {
 		}
 	}
 
+	// Like resolve_variable, but a global that was never declared is an error (for @wrafs / @hotlink sources).
 	fn resolve_existing(&mut self, name: &str, line: usize, what: &str) -> Result<VarLocation, String> {
 		let si = self.scopes.len() - 1;
 		match self.resolve_in_scope(si, name) {
@@ -367,6 +385,7 @@ impl Compiler {
 		self.emit_get_location(loc);
 	}
 
+	// Set* leaves the value on the stack, so a hotlinked write is just "set me, then set my source (and its source...)".
 	fn emit_set_variable(&mut self, name: &str) {
 		let loc = self.resolve_variable(name);
 		self.emit_set_location(loc);
@@ -374,7 +393,7 @@ impl Compiler {
 		let cur = self.scopes.len() - 1;
 		let mut target = self.target_of(loc);
 		while let Some(source) = self.hotlinks.get(&target).copied() {
-			let source_loc = self.locate_target(cur, target);
+			let source_loc = self.locate_target(cur, source);
 			self.emit_set_location(source_loc);
 			target = source;
 		}
@@ -388,7 +407,7 @@ impl Compiler {
 			}
 			match self.hotlinks.get(&t) {
 				Some(&next) => t = next,
-				None => return false
+				None => return false,
 			}
 		}
 	}
@@ -404,16 +423,8 @@ impl Compiler {
 		}
 	}
 
-	fn constant_to_literal(cv: ConstantValue) -> LiteralValue {
-		match cv {
-			ConstantValue::Number(n) => LiteralValue::Number(n),
-			ConstantValue::Str(s) => LiteralValue::StringValue(s),
-			ConstantValue::Bool(true) => LiteralValue::True,
-			ConstantValue::Bool(false) => LiteralValue::False,
-			ConstantValue::Nil => LiteralValue::Nil,
-		}
-	}
-
+	// Emits the pops needed to unwind to `keep` locals without forgetting them at compile time
+	// (code after the break/continue in the same block still sees those locals).
 	fn emit_pops_to(&mut self, keep: usize) {
 		let total = self.current().locals.len();
 		for i in (keep..total).rev() {
@@ -427,8 +438,10 @@ impl Compiler {
 	}
 
 	fn compile_stmt(&mut self, stmt: &Stmt) -> Result<(), String> {
+		// Production builds strip @ghost declarations and everything that touches them.
 		if self.is_production {
 			if self.stmt_refs_ghost(stmt) {
+				// whatever this statement would have declared now depends on a ghost, so it is ghost too
 				match stmt {
 					Stmt::Var { name, .. } | Stmt::WrafsVar { name, .. } | Stmt::HotlinkVar { name, .. } => {
 						self.mark_name(&name.lexeme, true);
@@ -442,12 +455,14 @@ impl Compiler {
 				return Ok(());
 			}
 		}
+
 		match stmt {
 			Stmt::Var { name, initializer } => {
 				self.compile_expr(initializer)?;
 				self.define_variable(&name.lexeme);
 			}
 			Stmt::GhostVar { name, initializer } => {
+				// development build: a ghost is just a normal variable
 				self.compile_expr(initializer)?;
 				self.define_variable(&name.lexeme);
 			}
@@ -455,6 +470,7 @@ impl Compiler {
 				let loc = self.resolve_existing(&source.lexeme, source.line_number, "@wrafs")?;
 				let target = self.target_of(loc);
 				if self.current().scope_depth > 0 {
+					// dummy slot keeps the stack aligned; the name itself just points at `target`
 					let nil = self.current().chunk.add_constant(ConstantValue::Nil);
 					self.current().chunk.emit(OpCode::Const(nil));
 					let slot = self.declare_local(&name.lexeme);
@@ -470,8 +486,10 @@ impl Compiler {
 			Stmt::HotlinkVar { id: _, name, source } => {
 				let loc = self.resolve_existing(&source.lexeme, source.line_number, "@hotlink")?;
 				let target = self.target_of(loc);
+				// the linked variable starts as a copy of the source...
 				self.emit_get_location(loc);
 				let linked = self.define_variable(&name.lexeme);
+				// ...and from then on, writing it also writes the source (not the other way round)
 				if self.link_chain_reaches(target, linked) {
 					return Err(format!(
 						"Line {}: '{}' cannot be hotlinked to '{}' (it would link back to itself)",
@@ -499,7 +517,7 @@ impl Compiler {
 				self.compile_expr(predicate)?;
 				let jump_to_else = self.current().chunk.emit_jump_placeholder(OpCode::JumpIfFalse);
 				self.compile_stmt(then.as_ref())?;
- 
+
 				let jump_past_else = self.current().chunk.emit_jump_placeholder(OpCode::Jump);
 				let else_target = self.current().chunk.next_index();
 				self.current().chunk.patch_jump(jump_to_else, else_target);
@@ -535,11 +553,11 @@ impl Compiler {
 				let range_slot = self.declare_local("__range__");
 				let zero_index = self.current().chunk.add_constant(ConstantValue::Number(0.0));
 				self.current().chunk.emit(OpCode::Const(zero_index));
- 
+
 				let counter_slot = self.declare_local("__counter__");
 				let nil_index = self.current().chunk.add_constant(ConstantValue::Nil);
 				self.current().chunk.emit(OpCode::Const(nil_index));
- 
+
 				let var_slot = self.declare_local(&variable.lexeme);
 				let iter_start = self.current().chunk.next_index();
 				let jump_if_done = self.current().chunk.emit_jump_placeholder(|t| OpCode::ForIterStart(t, range_slot, counter_slot, var_slot));
@@ -552,14 +570,15 @@ impl Compiler {
 				});
 				self.compile_stmt(body.as_ref())?;
 				let ctx = self.loop_stack.pop().unwrap();
- 
+
+				// `continue` must land on ForIterNext, otherwise the counter never advances
 				let next_index = self.current().chunk.next_index();
 				for continue_index in ctx.continue_jumps {
 					self.current().chunk.patch_jump(continue_index, next_index);
 				}
 				self.current().chunk.emit(OpCode::ForIterNext(iter_start, counter_slot));
 				let end_target = self.current().chunk.next_index();
- 
+
 				self.current().chunk.patch_jump(jump_if_done, end_target);
 				for break_index in ctx.break_jumps {
 					self.current().chunk.patch_jump(break_index, end_target);
@@ -609,7 +628,6 @@ impl Compiler {
 		Ok(())
 	}
 
-	
 	fn compile_expr(&mut self, expr: &Expr) -> Result<(), String> {
 		match expr {
 			Expr::Literal { id: _, value } => {
@@ -664,9 +682,12 @@ impl Compiler {
 				self.current().chunk.emit(OpCode::Call(argument_count));
 			}
 			Expr::Logical { id: _, left, operator, right } => {
+				// JumpIfFalse pops its operand, so Dup first to keep the left value as the result when we short-circuit
 				match operator.token_type {
 					TokenType::And => {
+						// left; Dup; JumpIfFalse(end); Pop; right; end:
 						self.compile_expr(left)?;
+						self.current().chunk.emit(OpCode::Dup);
 						let short_circuit = self.current().chunk.emit_jump_placeholder(OpCode::JumpIfFalse);
 						self.current().chunk.emit(OpCode::Pop);
 						self.compile_expr(right)?;
@@ -674,11 +695,13 @@ impl Compiler {
 						self.current().chunk.patch_jump(short_circuit, after);
 					}
 					TokenType::Or => {
+						// left; Dup; JumpIfFalse(rhs); Jump(end); rhs: Pop; right; end:
 						self.compile_expr(left)?;
+						self.current().chunk.emit(OpCode::Dup);
 						let check_false = self.current().chunk.emit_jump_placeholder(OpCode::JumpIfFalse);
 						let skip_right = self.current().chunk.emit_jump_placeholder(OpCode::Jump);
 						let right_start = self.current().chunk.next_index();
-
+						self.current().chunk.patch_jump(check_false, right_start);
 						self.current().chunk.emit(OpCode::Pop);
 						self.compile_expr(right)?;
 						let after = self.current().chunk.next_index();
@@ -688,7 +711,7 @@ impl Compiler {
 				}
 			}
 			other => {
-				return Err(format!("VM Compiler: Unsupported expression: {}", other.to_string()))
+				return Err(format!("VM Compiler: unsupported expression: {}", other.to_string()))
 			}
 		}
 		Ok(())
@@ -705,6 +728,7 @@ impl Compiler {
 			upvalue_names: HashMap::new(),
 		});
 		self.ghost_frames.push(HashMap::new());
+		// break/continue can't jump out of a function into an enclosing loop
 		let saved_loops = std::mem::take(&mut self.loop_stack);
 
 		for param in params {
